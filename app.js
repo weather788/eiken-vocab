@@ -17,13 +17,13 @@ import {
 // 🔧 Firebase Config
 // ─────────────────────────────────────────────────────────────
 const firebaseConfig = {
-  apiKey:            "AIzaSyB-Hj_16a0Ev7k0MGuf8oSX1Y9IyptLxWQ",
-  authDomain:        "eiken-vocab-55139.firebaseapp.com",
-  projectId:         "eiken-vocab-55139",
-  storageBucket:     "eiken-vocab-55139.firebasestorage.app",
-  messagingSenderId: "353608617207",
-  appId:             "1:353608617207:web:ce00fb1a8e5427867197f2",
-  measurementId:     "G-4RK8KHRS6P",
+  apiKey:            "AIzaSyCbM4jETPkt7fy_8Yc57umeP5AwZvcgRbI",
+  authDomain:        "eiken-vocab-b222b.firebaseapp.com",
+  projectId:         "eiken-vocab-b222b",
+  storageBucket:     "eiken-vocab-b222b.firebasestorage.app",
+  messagingSenderId: "577249273277",
+  appId:             "1:577249273277:web:81e9eafa0f3fc57dd9ded4",
+  measurementId:     "G-LC3H6DH09Y",
 };
 
 let app, auth, db;
