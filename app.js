@@ -961,59 +961,47 @@ function bindEvents() {
     }
   });
 
-  // メール/パスワード ログイン
-  document.getElementById("btn-email-signin").addEventListener("click", async () => {
-    if (!firebaseReady) { showToast("Firebase未設定です", "error"); return; }
-    const email    = document.getElementById("input-email").value.trim();
-    const password = document.getElementById("input-password").value;
-    const errEl    = document.getElementById("email-auth-error");
-    errEl.classList.add("hidden");
-    if (!email || !password) { errEl.textContent = "メールとパスワードを入力してください"; errEl.classList.remove("hidden"); return; }
-    try {
-      if (currentUser?.isAnonymous) {
-        const credential = EmailAuthProvider.credential(email, password);
-        await linkWithCredential(currentUser, credential);
-        showToast("メールアカウントに連携しました！", "success");
-      } else {
-        await signInWithEmailAndPassword(auth, email, password);
-        showToast("ログインしました！", "success");
-      }
-      document.getElementById("modal-login").classList.add("hidden");
-    } catch (e) {
-      console.error(e);
-      const msg = e.code === "auth/wrong-password" ? "パスワードが違います" :
-                  e.code === "auth/user-not-found"  ? "このメールは登録されていません" :
-                  e.code === "auth/invalid-email"   ? "メールアドレスの形式が正しくありません" :
-                  e.message;
-      errEl.textContent = msg;
-      errEl.classList.remove("hidden");
-    }
-  });
+  // メール/パスワード認証 (イベント委譲)
+  document.getElementById("modal-login").addEventListener("click", async (e) => {
+    const btn = e.target.closest("button");
+    if (!btn) return;
+    const id = btn.id;
+    if (id !== "btn-email-signin" && id !== "btn-email-signup") return;
 
-  // メール/パスワード 新規登録
-  document.getElementById("btn-email-signup").addEventListener("click", async () => {
     if (!firebaseReady) { showToast("Firebase未設定です", "error"); return; }
     const email    = document.getElementById("input-email").value.trim();
     const password = document.getElementById("input-password").value;
     const errEl    = document.getElementById("email-auth-error");
     errEl.classList.add("hidden");
     if (!email || !password) { errEl.textContent = "メールとパスワードを入力してください"; errEl.classList.remove("hidden"); return; }
-    if (password.length < 6)  { errEl.textContent = "パスワードは6文字以上にしてください"; errEl.classList.remove("hidden"); return; }
+    if (id === "btn-email-signup" && password.length < 6) {
+      errEl.textContent = "パスワードは6文字以上にしてください"; errEl.classList.remove("hidden"); return;
+    }
     try {
-      if (currentUser?.isAnonymous) {
-        const credential = EmailAuthProvider.credential(email, password);
-        await linkWithCredential(currentUser, credential);
-        showToast("アカウントを作成しました！", "success");
+      if (id === "btn-email-signin") {
+        if (currentUser?.isAnonymous) {
+          await linkWithCredential(currentUser, EmailAuthProvider.credential(email, password));
+          showToast("メールアカウントに連携しました！", "success");
+        } else {
+          await signInWithEmailAndPassword(auth, email, password);
+          showToast("ログインしました！", "success");
+        }
       } else {
-        await createUserWithEmailAndPassword(auth, email, password);
-        showToast("アカウントを作成しました！", "success");
+        if (currentUser?.isAnonymous) {
+          await linkWithCredential(currentUser, EmailAuthProvider.credential(email, password));
+          showToast("アカウントを作成しました！", "success");
+        } else {
+          await createUserWithEmailAndPassword(auth, email, password);
+          showToast("アカウントを作成しました！", "success");
+        }
       }
       document.getElementById("modal-login").classList.add("hidden");
     } catch (e) {
-      console.error(e);
-      const msg = e.code === "auth/email-already-in-use" ? "このメールはすでに登録されています" :
-                  e.code === "auth/invalid-email"        ? "メールアドレスの形式が正しくありません" :
-                  e.code === "auth/weak-password"        ? "パスワードが弱すぎます" :
+      const msg = e.code === "auth/wrong-password"      ? "パスワードが違います" :
+                  e.code === "auth/user-not-found"      ? "このメールは登録されていません" :
+                  e.code === "auth/email-already-in-use"? "このメールはすでに登録されています" :
+                  e.code === "auth/invalid-email"       ? "メールアドレスの形式が正しくありません" :
+                  e.code === "auth/weak-password"       ? "パスワードが弱すぎます" :
                   e.message;
       errEl.textContent = msg;
       errEl.classList.remove("hidden");
