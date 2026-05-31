@@ -402,7 +402,7 @@ function showToast(msg, type = "info") {
 }
 
 function showScreen(id) {
-  ["screen-home", "screen-study"].forEach(s =>
+  ["screen-home", "screen-study", "screen-wordlist"].forEach(s =>
     document.getElementById(s).classList.toggle("hidden", s !== id)
   );
   document.getElementById("btn-back-home").classList.toggle("hidden", id === "screen-home");
