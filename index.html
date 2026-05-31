@@ -217,11 +217,34 @@
     </div>
   </div>
 
-  <!-- Unit Grid -->
-  <div class="mb-4 flex items-center justify-between">
+  <!-- Unit Grid ヘッダー + フィルターバー -->
+  <div class="mb-3 flex items-center justify-between">
     <h2 class="font-display text-lg text-ink-100">ユニット一覧</h2>
     <span class="text-xs text-ink-500 font-mono">Unit 1 〜 15</span>
   </div>
+
+  <!-- 🎯 学習フィルター切り替え -->
+  <div class="flex gap-2 mb-5 p-1 rounded-xl bg-ink-800/80 border border-ink-700/60">
+    <button id="filter-all"
+      class="filter-btn flex-1 py-2 rounded-lg text-xs font-semibold transition-all bg-ink-700/60 text-jade-400"
+      onclick="setFilter('all')">
+      📚 全単語
+    </button>
+    <button id="filter-notMastered"
+      class="filter-btn flex-1 py-2 rounded-lg text-xs font-semibold transition-all text-ink-400 hover:text-ink-200"
+      onclick="setFilter('notMastered')">
+      🔥 未習得・学習中
+    </button>
+    <button id="filter-unlearned"
+      class="filter-btn flex-1 py-2 rounded-lg text-xs font-semibold transition-all text-ink-400 hover:text-ink-200"
+      onclick="setFilter('unlearned')">
+      ✦ 未学習のみ
+    </button>
+  </div>
+  <!-- フィルター説明 -->
+  <p id="filter-desc" class="text-xs text-ink-500 mb-4 text-center">
+    全単語を表示しています。ユニットをタップして学習開始。
+  </p>
 
   <div id="unit-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
     <!-- Populated by JS -->
