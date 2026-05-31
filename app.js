@@ -970,7 +970,7 @@ function renderJa2En() {
   document.getElementById("ja2en-options").innerHTML = options.map((opt, i) => `
     <button class="choice-btn w-full text-left px-5 py-3.5 rounded-2xl bg-ink-800/80 border border-ink-700/60 text-ink-200 text-sm font-mono font-medium"
             data-correct="${opt === w.word}"
-            onclick="handleJa2En(this,'${w.id}',${opt === w.word})">
+            data-wordid="${w.id}">
       <span class="text-ink-500 mr-2">${String.fromCharCode(65+i)}.</span>${opt}
     </button>`).join("");
 
@@ -1038,30 +1038,33 @@ function renderListen() {
   document.getElementById("listen-result").classList.add("hidden");
   document.getElementById("listen-hint").textContent = "ボタンをタップして再生";
 
+  // 選択肢は英単語（単語を当てる）
   const pool    = allWords.filter(x => x.id !== w.id);
-  const dummies = shuffle(pool).slice(0, 3).map(x => x.meaning);
-  const options = shuffle([w.meaning, ...dummies]);
+  const dummies = shuffle(pool).slice(0, 3).map(x => x.word);
+  const options = shuffle([w.word, ...dummies]);
 
-  document.getElementById("listen-options").innerHTML = options.map((opt, i) => `
-    <button class="choice-btn w-full text-left px-5 py-3.5 rounded-2xl bg-ink-800/80 border border-ink-700/60 text-ink-200 text-sm font-medium"
-            data-correct="${opt === w.meaning}"
-            onclick="handleListen(this,'${w.id}',${opt === w.meaning})">
-      <span class="text-ink-500 font-mono mr-2">${String.fromCharCode(65+i)}.</span>${opt}
-    </button>`).join("");
+  document.getElementById("listen-options").innerHTML = options.map((opt, i) => {
+    const correct = opt === w.word;
+    return `<button class="choice-btn w-full text-left px-5 py-3.5 rounded-2xl bg-ink-800/80 border border-ink-700/60 text-ink-200 font-mono font-medium"
+            data-correct="${correct}"
+            data-wordid="${w.id}">
+      <span class="text-ink-500 mr-2">${String.fromCharCode(65+i)}.</span>${opt}
+    </button>`;
+  }).join("");
 
-  // auto-play after a short delay
-  setTimeout(() => speak(w.word), 300);
+  // 自動再生
+  setTimeout(() => speak(w.word), 400);
   updateTestProgress2("listen");
 }
 
 window.handleListen = async function(btn, wordId, isCorrect) {
   if (listenAnswered) return;
   listenAnswered = true;
+  const w = listenWords[listenIdx];
   document.querySelectorAll("#listen-options .choice-btn").forEach(b => {
     b.disabled = true;
     if (b.dataset.correct === "true") b.classList.add("correct");
   });
-  const w = listenWords[listenIdx];
   if (isCorrect) {
     btn.classList.add("correct"); listenCorrect++;
     playSound("correct"); showFeedback2("listen","✓","jade"); showToast("正解！","success");
@@ -1069,11 +1072,14 @@ window.handleListen = async function(btn, wordId, isCorrect) {
     btn.classList.add("incorrect"); listenWrong.push(wordId);
     playSound("wrong"); showFeedback2("listen","✕","rose"); showToast("不正解…","error");
   }
+  // 正解単語と意味を表示してから次へ
   document.getElementById("listen-result").classList.remove("hidden");
-  document.getElementById("listen-result-msg").textContent  = isCorrect ? "正解！" : "不正解";
-  document.getElementById("listen-correct-word").textContent = w.word;
+  document.getElementById("listen-result-msg").textContent   = isCorrect ? `正解！` : `不正解…`;
+  document.getElementById("listen-correct-word").textContent = `${w.word}  ＝  ${w.meaning}`;
   await updateWordProgress(wordId, isCorrect);
-  hideFeedback2("listen");
+  setTimeout(() => {
+    hideFeedback2("listen");
+  }, 600);
 };
 
 function endListenSession() {
@@ -1162,7 +1168,7 @@ function renderTimed() {
   document.getElementById("timed-options").innerHTML = options.map((opt, i) => `
     <button class="choice-btn w-full text-left px-5 py-3.5 rounded-2xl bg-ink-800/80 border border-ink-700/60 text-ink-200 text-sm font-medium"
             data-correct="${opt === w.meaning}"
-            onclick="handleTimed(this,'${w.id}',${opt === w.meaning})">
+            data-wordid="${w.id}">
       <span class="text-ink-500 font-mono mr-2">${String.fromCharCode(65+i)}.</span>${opt}
     </button>`).join("");
 
@@ -1322,6 +1328,11 @@ function bindEvents() {
   });
 
   // ── 日本語→英語 ──
+  document.getElementById("ja2en-options").addEventListener("click", e => {
+    const btn = e.target.closest(".choice-btn");
+    if (!btn) return;
+    handleJa2En(btn, btn.dataset.wordid, btn.dataset.correct === "true");
+  });
   document.getElementById("btn-ja2en-next").addEventListener("click", () => {
     playSound("click"); ja2enIdx++; renderJa2En();
   });
@@ -1335,6 +1346,11 @@ function bindEvents() {
   });
 
   // ── リスニング ──
+  document.getElementById("listen-options").addEventListener("click", e => {
+    const btn = e.target.closest(".choice-btn");
+    if (!btn) return;
+    handleListen(btn, btn.dataset.wordid, btn.dataset.correct === "true");
+  });
   document.getElementById("btn-listen-speak").addEventListener("click", () => {
     if (listenIdx < listenWords.length) speak(listenWords[listenIdx].word);
   });
@@ -1351,6 +1367,11 @@ function bindEvents() {
   });
 
   // ── タイムアタック ──
+  document.getElementById("timed-options").addEventListener("click", e => {
+    const btn = e.target.closest(".choice-btn");
+    if (!btn) return;
+    handleTimed(btn, btn.dataset.wordid, btn.dataset.correct === "true");
+  });
   document.getElementById("btn-timed-retry").addEventListener("click", () => {
     playSound("click");
     document.getElementById("timed-session-end").classList.add("hidden");
