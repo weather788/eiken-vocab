@@ -976,20 +976,15 @@ function bindEvents() {
     errEl.classList.add("hidden");
     if (!email || !password) { errEl.textContent = "メールとパスワードを入力してください"; errEl.classList.remove("hidden"); return; }
     try {
-      if (currentUser?.isAnonymous) {
-        await linkWithCredential(currentUser, EmailAuthProvider.credential(email, password));
-        showToast("メールアカウントに連携しました！", "success");
-      } else {
-        await signInWithEmailAndPassword(auth, email, password);
-        showToast("ログインしました！", "success");
-      }
+      await signInWithEmailAndPassword(auth, email, password);
+      showToast("ログインしました！", "success");
       document.getElementById("modal-login").classList.add("hidden");
     } catch (err) {
       errEl.textContent =
-        err.code === "auth/wrong-password"       ? "パスワードが違います" :
-        err.code === "auth/user-not-found"       ? "このメールは登録されていません" :
-        err.code === "auth/invalid-credential"   ? "メールアドレスまたはパスワードが違います" :
-        err.code === "auth/invalid-email"        ? "メールアドレスの形式が正しくありません" :
+        err.code === "auth/wrong-password"     ? "パスワードが違います" :
+        err.code === "auth/user-not-found"     ? "このメールは登録されていません" :
+        err.code === "auth/invalid-credential" ? "メールアドレスまたはパスワードが違います" :
+        err.code === "auth/invalid-email"      ? "メールアドレスの形式が正しくありません" :
         err.message;
       errEl.classList.remove("hidden");
     }
