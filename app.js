@@ -1009,14 +1009,75 @@ function endJa2EnSession() {
 // ═══════════════════════════════════════════════════════════════
 let listenIdx = 0, listenWords = [], listenCorrect = 0, listenWrong = [], listenAnswered = false;
 
+// 優先順位付きで最適な英語音声を選ぶ
+function pickVoice() {
+  const voices = window.speechSynthesis.getVoices();
+  if (!voices.length) return null;
+
+  // 英検らしいクリアな声を優先順位で探す
+  // iOS: Daniel (en-GB), Samantha (en-US)
+  // Android/Chrome: Google US English, Google UK English Female
+  // macOS: Alex, Samantha, Daniel
+  const preferred = [
+    "Daniel",           // iOS/macOS en-GB — 落ち着いた男声
+    "Google UK English Female",  // Chrome en-GB
+    "Serena",           // macOS en-GB
+    "Arthur",           // macOS en-GB
+    "Google US English",
+    "Samantha",         // iOS/macOS en-US
+    "Alex",             // macOS en-US
+    "Karen",            // iOS en-AU
+    "Google UK English Male",
+  ];
+
+  for (const name of preferred) {
+    const v = voices.find(v => v.name === name);
+    if (v) return v;
+  }
+
+  // フォールバック: en-GB → en-AU → en-US の順
+  return (
+    voices.find(v => v.lang === "en-GB") ||
+    voices.find(v => v.lang === "en-AU") ||
+    voices.find(v => v.lang.startsWith("en-US")) ||
+    voices.find(v => v.lang.startsWith("en")) ||
+    null
+  );
+}
+
+let _selectedVoice = null;
+
 function speak(text) {
   if (!window.speechSynthesis) return;
   window.speechSynthesis.cancel();
+
+  // 音声リストが非同期で読み込まれる場合があるので再取得
+  if (!_selectedVoice) _selectedVoice = pickVoice();
+
   const utt = new SpeechSynthesisUtterance(text);
-  utt.lang = "en-US"; utt.rate = 0.9; utt.pitch = 1.0;
+  utt.lang  = "en-GB";   // 英検風にBritish English優先
+  utt.rate  = 0.82;      // 少しゆっくり（英検本番より若干遅め）
+  utt.pitch = 1.0;       // 自然なピッチ
+  utt.volume = 1.0;
+
+  if (_selectedVoice) utt.voice = _selectedVoice;
+
   const btn = document.getElementById("btn-listen-speak");
-  if (btn) { btn.classList.add("speaking"); utt.onend = () => btn.classList.remove("speaking"); }
-  window.speechSynthesis.speak(utt);
+  if (btn) {
+    btn.classList.add("speaking");
+    utt.onend   = () => btn.classList.remove("speaking");
+    utt.onerror = () => btn.classList.remove("speaking");
+  }
+
+  // iOS Safari対策: 少し遅らせて発話
+  setTimeout(() => window.speechSynthesis.speak(utt), 80);
+}
+
+// 音声リストが後から読み込まれたときに再選択
+if (window.speechSynthesis) {
+  window.speechSynthesis.onvoiceschanged = () => {
+    _selectedVoice = pickVoice();
+  };
 }
 
 function initListenMode(words) {
