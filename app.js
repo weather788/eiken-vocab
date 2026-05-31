@@ -645,6 +645,10 @@ function switchTab(tab) {
   if (tab === "card")   initCardMode();
   if (tab === "choice") initChoiceMode();
   if (tab === "spell")  initSpellMode();
+  if (tab === "ja2en")  initJa2EnMode();
+  if (tab === "listen") initListenMode();
+  if (tab === "timed")  initTimedMode();
+  if (tab !== "timed")  stopTimedTimer();
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -936,6 +940,297 @@ document.addEventListener("keydown", e => {
 });
 
 // ═══════════════════════════════════════════════════════════════
+// ── 日本語→英語 4択モード (ja2en) ────────────────────────────
+// ═══════════════════════════════════════════════════════════════
+let ja2enIdx = 0, ja2enWords = [], ja2enCorrect = 0, ja2enWrong = [], ja2enAnswered = false;
+
+function initJa2EnMode(words) {
+  ja2enCorrect  = 0;
+  ja2enWrong    = [];
+  ja2enIdx      = 0;
+  ja2enAnswered = false;
+  ja2enWords    = shuffle(words ?? [...sessionWords]);
+  document.getElementById("ja2en-session-end").classList.add("hidden");
+  document.getElementById("ja2en-result").classList.add("hidden");
+  updateTestProgress2("ja2en");
+  renderJa2En();
+}
+
+function renderJa2En() {
+  if (ja2enIdx >= ja2enWords.length) { endJa2EnSession(); return; }
+  const w = ja2enWords[ja2enIdx];
+  document.getElementById("ja2en-meaning").textContent = w.meaning;
+  ja2enAnswered = false;
+  document.getElementById("ja2en-result").classList.add("hidden");
+
+  const pool    = allWords.filter(x => x.id !== w.id);
+  const dummies = shuffle(pool).slice(0, 3).map(x => x.word);
+  const options = shuffle([w.word, ...dummies]);
+
+  document.getElementById("ja2en-options").innerHTML = options.map((opt, i) => `
+    <button class="choice-btn w-full text-left px-5 py-3.5 rounded-2xl bg-ink-800/80 border border-ink-700/60 text-ink-200 text-sm font-mono font-medium"
+            data-correct="${opt === w.word}"
+            onclick="handleJa2En(this,'${w.id}',${opt === w.word})">
+      <span class="text-ink-500 mr-2">${String.fromCharCode(65+i)}.</span>${opt}
+    </button>`).join("");
+
+  updateTestProgress2("ja2en");
+}
+
+window.handleJa2En = async function(btn, wordId, isCorrect) {
+  if (ja2enAnswered) return;
+  ja2enAnswered = true;
+  document.querySelectorAll("#ja2en-options .choice-btn").forEach(b => {
+    b.disabled = true;
+    if (b.dataset.correct === "true") b.classList.add("correct");
+  });
+  if (isCorrect) {
+    btn.classList.add("correct"); ja2enCorrect++;
+    playSound("correct"); showFeedback2("ja2en","✓","jade"); showToast("正解！","success");
+  } else {
+    btn.classList.add("incorrect"); ja2enWrong.push(wordId);
+    playSound("wrong"); showFeedback2("ja2en","✕","rose"); showToast("不正解…","error");
+  }
+  await updateWordProgress(wordId, isCorrect);
+  setTimeout(() => { hideFeedback2("ja2en"); ja2enIdx++; renderJa2En(); }, 900);
+};
+
+function endJa2EnSession() {
+  document.getElementById("ja2en-session-end").classList.remove("hidden");
+  document.getElementById("ja2en-result-correct").textContent = ja2enCorrect;
+  document.getElementById("ja2en-result-wrong").textContent   = ja2enWrong.length;
+  document.getElementById("btn-ja2en-retry-wrong").classList.toggle("hidden", ja2enWrong.length === 0);
+  if (ja2enWrong.length === 0) playSound("perfect");
+  else if (ja2enCorrect / ja2enWords.length >= 0.8) playSound("correct");
+}
+
+// ═══════════════════════════════════════════════════════════════
+// ── リスニングモード (listen) ─────────────────────────────────
+// ═══════════════════════════════════════════════════════════════
+let listenIdx = 0, listenWords = [], listenCorrect = 0, listenWrong = [], listenAnswered = false;
+
+function speak(text) {
+  if (!window.speechSynthesis) return;
+  window.speechSynthesis.cancel();
+  const utt = new SpeechSynthesisUtterance(text);
+  utt.lang = "en-US"; utt.rate = 0.9; utt.pitch = 1.0;
+  const btn = document.getElementById("btn-listen-speak");
+  if (btn) { btn.classList.add("speaking"); utt.onend = () => btn.classList.remove("speaking"); }
+  window.speechSynthesis.speak(utt);
+}
+
+function initListenMode(words) {
+  listenCorrect  = 0;
+  listenWrong    = [];
+  listenIdx      = 0;
+  listenAnswered = false;
+  listenWords    = shuffle(words ?? [...sessionWords]);
+  document.getElementById("listen-session-end").classList.add("hidden");
+  document.getElementById("listen-result").classList.add("hidden");
+  updateTestProgress2("listen");
+  renderListen();
+}
+
+function renderListen() {
+  if (listenIdx >= listenWords.length) { endListenSession(); return; }
+  const w = listenWords[listenIdx];
+  listenAnswered = false;
+  document.getElementById("listen-result").classList.add("hidden");
+  document.getElementById("listen-hint").textContent = "ボタンをタップして再生";
+
+  const pool    = allWords.filter(x => x.id !== w.id);
+  const dummies = shuffle(pool).slice(0, 3).map(x => x.meaning);
+  const options = shuffle([w.meaning, ...dummies]);
+
+  document.getElementById("listen-options").innerHTML = options.map((opt, i) => `
+    <button class="choice-btn w-full text-left px-5 py-3.5 rounded-2xl bg-ink-800/80 border border-ink-700/60 text-ink-200 text-sm font-medium"
+            data-correct="${opt === w.meaning}"
+            onclick="handleListen(this,'${w.id}',${opt === w.meaning})">
+      <span class="text-ink-500 font-mono mr-2">${String.fromCharCode(65+i)}.</span>${opt}
+    </button>`).join("");
+
+  // auto-play after a short delay
+  setTimeout(() => speak(w.word), 300);
+  updateTestProgress2("listen");
+}
+
+window.handleListen = async function(btn, wordId, isCorrect) {
+  if (listenAnswered) return;
+  listenAnswered = true;
+  document.querySelectorAll("#listen-options .choice-btn").forEach(b => {
+    b.disabled = true;
+    if (b.dataset.correct === "true") b.classList.add("correct");
+  });
+  const w = listenWords[listenIdx];
+  if (isCorrect) {
+    btn.classList.add("correct"); listenCorrect++;
+    playSound("correct"); showFeedback2("listen","✓","jade"); showToast("正解！","success");
+  } else {
+    btn.classList.add("incorrect"); listenWrong.push(wordId);
+    playSound("wrong"); showFeedback2("listen","✕","rose"); showToast("不正解…","error");
+  }
+  document.getElementById("listen-result").classList.remove("hidden");
+  document.getElementById("listen-result-msg").textContent  = isCorrect ? "正解！" : "不正解";
+  document.getElementById("listen-correct-word").textContent = w.word;
+  await updateWordProgress(wordId, isCorrect);
+  hideFeedback2("listen");
+};
+
+function endListenSession() {
+  document.getElementById("listen-session-end").classList.remove("hidden");
+  document.getElementById("listen-result-correct").textContent = listenCorrect;
+  document.getElementById("listen-result-wrong").textContent   = listenWrong.length;
+  document.getElementById("btn-listen-retry-wrong").classList.toggle("hidden", listenWrong.length === 0);
+  if (listenWrong.length === 0) playSound("perfect");
+}
+
+// ═══════════════════════════════════════════════════════════════
+// ── 時間制限クイズ (timed) ────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════
+const TIMED_SECONDS = 10;
+let timedIdx = 0, timedWords = [], timedCorrect = 0, timedWrong = 0;
+let timedStreak = 0, timedMaxStreak = 0;
+let timedAnswered = false, timedTimerInterval = null, timedTimeLeft = TIMED_SECONDS;
+
+function stopTimedTimer() {
+  if (timedTimerInterval) { clearInterval(timedTimerInterval); timedTimerInterval = null; }
+}
+
+function startTimedTimer() {
+  stopTimedTimer();
+  timedTimeLeft = TIMED_SECONDS;
+  updateTimerUI();
+  timedTimerInterval = setInterval(() => {
+    timedTimeLeft = Math.max(0, timedTimeLeft - 0.1);
+    updateTimerUI();
+    if (timedTimeLeft <= 0) {
+      stopTimedTimer();
+      if (!timedAnswered) timedTimeout();
+    }
+  }, 100);
+}
+
+function updateTimerUI() {
+  const pct = (timedTimeLeft / TIMED_SECONDS) * 100;
+  const bar = document.getElementById("timed-timer-bar");
+  const lbl = document.getElementById("timed-timer-label");
+  if (!bar || !lbl) return;
+  bar.style.width = pct + "%";
+  bar.classList.toggle("danger", timedTimeLeft <= 3);
+  bar.style.background = timedTimeLeft <= 3 ? "#fb7185" : timedTimeLeft <= 5 ? "#fbbf24" : "#4ade80";
+  lbl.textContent = timedTimeLeft.toFixed(1) + "s";
+  lbl.style.color = timedTimeLeft <= 3 ? "#fb7185" : timedTimeLeft <= 5 ? "#fbbf24" : "#fbbf24";
+}
+
+function timedTimeout() {
+  if (timedAnswered) return;
+  timedAnswered = true;
+  timedWrong++;
+  timedStreak = 0;
+  document.querySelectorAll("#timed-options .choice-btn").forEach(b => {
+    b.disabled = true;
+    if (b.dataset.correct === "true") b.classList.add("correct");
+  });
+  playSound("wrong");
+  showFeedback2("timed","⏰","rose");
+  showToast("時間切れ！","error");
+  setTimeout(() => { hideFeedback2("timed"); timedIdx++; renderTimed(); }, 900);
+}
+
+function initTimedMode(words) {
+  timedCorrect  = 0; timedWrong    = 0;
+  timedStreak   = 0; timedMaxStreak= 0;
+  timedIdx      = 0; timedAnswered = false;
+  timedWords    = shuffle(words ?? [...sessionWords]);
+  stopTimedTimer();
+  document.getElementById("timed-session-end").classList.add("hidden");
+  document.getElementById("timed-streak-label").textContent = "連続正解: 0";
+  updateTestProgress2("timed");
+  renderTimed();
+}
+
+function renderTimed() {
+  if (timedIdx >= timedWords.length) { stopTimedTimer(); endTimedSession(); return; }
+  const w = timedWords[timedIdx];
+  document.getElementById("timed-word").textContent = w.word;
+  timedAnswered = false;
+
+  const pool    = allWords.filter(x => x.id !== w.id);
+  const dummies = shuffle(pool).slice(0, 3).map(x => x.meaning);
+  const options = shuffle([w.meaning, ...dummies]);
+
+  document.getElementById("timed-options").innerHTML = options.map((opt, i) => `
+    <button class="choice-btn w-full text-left px-5 py-3.5 rounded-2xl bg-ink-800/80 border border-ink-700/60 text-ink-200 text-sm font-medium"
+            data-correct="${opt === w.meaning}"
+            onclick="handleTimed(this,'${w.id}',${opt === w.meaning})">
+      <span class="text-ink-500 font-mono mr-2">${String.fromCharCode(65+i)}.</span>${opt}
+    </button>`).join("");
+
+  updateTestProgress2("timed");
+  startTimedTimer();
+}
+
+window.handleTimed = async function(btn, wordId, isCorrect) {
+  if (timedAnswered) return;
+  timedAnswered = true;
+  stopTimedTimer();
+  document.querySelectorAll("#timed-options .choice-btn").forEach(b => {
+    b.disabled = true;
+    if (b.dataset.correct === "true") b.classList.add("correct");
+  });
+  if (isCorrect) {
+    btn.classList.add("correct"); timedCorrect++;
+    timedStreak++; if (timedStreak > timedMaxStreak) timedMaxStreak = timedStreak;
+    playSound("correct"); showFeedback2("timed","✓","jade"); showToast("正解！","success");
+  } else {
+    btn.classList.add("incorrect"); timedWrong++;
+    timedStreak = 0;
+    playSound("wrong"); showFeedback2("timed","✕","rose"); showToast("不正解…","error");
+  }
+  document.getElementById("timed-streak-label").textContent = `連続正解: ${timedStreak}`;
+  await updateWordProgress(wordId, isCorrect);
+  setTimeout(() => { hideFeedback2("timed"); timedIdx++; renderTimed(); }, 700);
+};
+
+function endTimedSession() {
+  document.getElementById("timed-session-end").classList.remove("hidden");
+  document.getElementById("timed-result-correct").textContent = timedCorrect;
+  document.getElementById("timed-result-wrong").textContent   = timedWrong;
+  document.getElementById("timed-result-streak").textContent  = timedMaxStreak;
+  document.getElementById("timed-end-icon").textContent =
+    timedWrong === 0 ? "🏆" : timedCorrect / (timedCorrect + timedWrong) >= 0.8 ? "🎯" : "⏱";
+  if (timedWrong === 0) playSound("perfect");
+  else if (timedCorrect / timedWords.length >= 0.8) playSound("correct");
+}
+
+// ─────────────────────────────────────────────────────────────
+// 新モード用共通ヘルパー
+// ─────────────────────────────────────────────────────────────
+function showFeedback2(mode, icon, color) {
+  const el = document.getElementById(`${mode}-feedback`);
+  const ic = document.getElementById(`${mode}-feedback-icon`);
+  if (!el || !ic) return;
+  ic.textContent = icon;
+  ic.className   = `text-8xl animate-pop-in ${color === "jade" ? "text-jade-400" : "text-rose-400"}`;
+  el.classList.remove("hidden");
+}
+function hideFeedback2(mode) {
+  document.getElementById(`${mode}-feedback`)?.classList.add("hidden");
+}
+
+function updateTestProgress2(mode) {
+  let current, total, correct;
+  if (mode === "ja2en")  { current = ja2enIdx;  total = ja2enWords.length;  correct = ja2enCorrect; }
+  else if (mode === "listen") { current = listenIdx; total = listenWords.length; correct = listenCorrect; }
+  else if (mode === "timed")  { current = timedIdx;  total = timedWords.length;  correct = timedCorrect; }
+  else return;
+  const pct = total ? (current / total) * 100 : 0;
+  document.getElementById("progress-fill").style.width  = `${pct}%`;
+  document.getElementById("progress-label").textContent = `${current} / ${total}`;
+  document.getElementById("progress-score").textContent = `正解: ${correct}`;
+}
+
+// ═══════════════════════════════════════════════════════════════
 // イベントバインド
 // ═══════════════════════════════════════════════════════════════
 function bindEvents() {
@@ -1024,6 +1319,45 @@ function bindEvents() {
   document.getElementById("btn-spell-finish").addEventListener("click", () => {
     playSound("click");
     renderHome(); showScreen("screen-home");
+  });
+
+  // ── 日本語→英語 ──
+  document.getElementById("btn-ja2en-next").addEventListener("click", () => {
+    playSound("click"); ja2enIdx++; renderJa2En();
+  });
+  document.getElementById("btn-ja2en-retry-wrong").addEventListener("click", () => {
+    playSound("click");
+    document.getElementById("ja2en-session-end").classList.add("hidden");
+    initJa2EnMode(allWords.filter(w => ja2enWrong.includes(w.id)));
+  });
+  document.getElementById("btn-ja2en-finish").addEventListener("click", () => {
+    playSound("click"); renderHome(); showScreen("screen-home");
+  });
+
+  // ── リスニング ──
+  document.getElementById("btn-listen-speak").addEventListener("click", () => {
+    if (listenIdx < listenWords.length) speak(listenWords[listenIdx].word);
+  });
+  document.getElementById("btn-listen-next").addEventListener("click", () => {
+    playSound("click"); listenIdx++; renderListen();
+  });
+  document.getElementById("btn-listen-retry-wrong").addEventListener("click", () => {
+    playSound("click");
+    document.getElementById("listen-session-end").classList.add("hidden");
+    initListenMode(allWords.filter(w => listenWrong.includes(w.id)));
+  });
+  document.getElementById("btn-listen-finish").addEventListener("click", () => {
+    playSound("click"); renderHome(); showScreen("screen-home");
+  });
+
+  // ── タイムアタック ──
+  document.getElementById("btn-timed-retry").addEventListener("click", () => {
+    playSound("click");
+    document.getElementById("timed-session-end").classList.add("hidden");
+    initTimedMode();
+  });
+  document.getElementById("btn-timed-finish").addEventListener("click", () => {
+    stopTimedTimer(); playSound("click"); renderHome(); showScreen("screen-home");
   });
 
   // ── 復習 ──
