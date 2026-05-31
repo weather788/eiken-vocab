@@ -255,6 +255,32 @@
 </div>
 
 <!-- ═══════════════════════════════════════════════════════════ -->
+<!-- SCREEN: WORD LIST                                            -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<div id="screen-wordlist" class="hidden max-w-3xl mx-auto px-4 py-6">
+  <div class="flex items-center gap-3 mb-5">
+    <button type="button" id="btn-back-from-wordlist"
+      class="w-9 h-9 rounded-xl bg-ink-800 hover:bg-ink-700 border border-ink-700/60 flex items-center justify-center text-ink-300 transition-colors">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+    </button>
+    <div>
+      <h2 class="font-display text-xl text-ink-100" id="wordlist-title">Unit X</h2>
+      <p class="text-xs text-ink-500" id="wordlist-subtitle"></p>
+    </div>
+    <!-- ステータスフィルター -->
+    <div class="ml-auto flex gap-1 p-1 rounded-xl bg-ink-800 border border-ink-700/60">
+      <button type="button" class="wl-filter-btn px-2.5 py-1 rounded-lg text-xs font-medium transition-all bg-ink-600 text-ink-100" data-filter="all">全て</button>
+      <button type="button" class="wl-filter-btn px-2.5 py-1 rounded-lg text-xs font-medium transition-all text-ink-400 hover:text-ink-200" data-filter="mastered">習得済</button>
+      <button type="button" class="wl-filter-btn px-2.5 py-1 rounded-lg text-xs font-medium transition-all text-ink-400 hover:text-ink-200" data-filter="learning">学習中</button>
+      <button type="button" class="wl-filter-btn px-2.5 py-1 rounded-lg text-xs font-medium transition-all text-ink-400 hover:text-ink-200" data-filter="unlearned">未習得</button>
+    </div>
+  </div>
+  <div id="wordlist-body" class="space-y-2">
+    <!-- Populated by JS -->
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
 <!-- SCREEN: STUDY                                                -->
 <!-- ═══════════════════════════════════════════════════════════ -->
 <div id="screen-study" class="hidden max-w-3xl mx-auto px-4 py-6">
