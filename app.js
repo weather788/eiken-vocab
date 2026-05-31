@@ -477,24 +477,89 @@ function renderHome() {
     const isEmpty = filterCount === 0;
 
     return `
-      <button class="unit-card rounded-2xl border ${done ? 'border-gold-400/40 bg-gold-400/5' : isEmpty ? 'border-ink-700/30 bg-ink-800/30 opacity-50' : 'border-ink-700/60 bg-ink-800/60'} p-4 text-left"
-              onclick="startUnit(${u})">
-        <div class="flex items-center justify-between mb-3">
-          <span class="font-display text-lg ${done ? 'text-gold-300' : 'text-ink-100'}">
-            ${done ? '✓ ' : ''}Unit ${u}
-          </span>
-          <span class="text-xs font-mono ${isEmpty ? 'text-ink-600' : currentFilterMode !== 'all' ? 'text-ember-400' : 'text-ink-500'}">${filterLabel}</span>
-        </div>
-        <div class="w-full h-1.5 rounded-full bg-ink-700 mb-2">
-          <div class="progress-fill h-full rounded-full ${done ? 'bg-gold-400' : 'bg-gradient-to-r from-jade-600 to-jade-400'}"
-               style="width:${pct}%"></div>
-        </div>
-        <div class="flex items-center justify-between">
-          <span class="text-xs text-ink-500">${mast}/${tot} 習得</span>
-          <span class="text-xs ${done ? 'text-gold-400' : 'text-jade-500'} font-mono">${pct}%</span>
-        </div>
-      </button>`;
+      <div class="rounded-2xl border ${done ? 'border-gold-400/40 bg-gold-400/5' : isEmpty ? 'border-ink-700/30 bg-ink-800/30' : 'border-ink-700/60 bg-ink-800/60'} overflow-hidden">
+        <button class="unit-card w-full p-4 text-left ${isEmpty ? 'opacity-50' : ''}"
+                onclick="startUnit(${u})">
+          <div class="flex items-center justify-between mb-3">
+            <span class="font-display text-lg ${done ? 'text-gold-300' : 'text-ink-100'}">
+              ${done ? '✓ ' : ''}Unit ${u}
+            </span>
+            <span class="text-xs font-mono ${isEmpty ? 'text-ink-600' : currentFilterMode !== 'all' ? 'text-ember-400' : 'text-ink-500'}">${filterLabel}</span>
+          </div>
+          <div class="w-full h-1.5 rounded-full bg-ink-700 mb-2">
+            <div class="progress-fill h-full rounded-full ${done ? 'bg-gold-400' : 'bg-gradient-to-r from-jade-600 to-jade-400'}"
+                 style="width:${pct}%"></div>
+          </div>
+          <div class="flex items-center justify-between">
+            <span class="text-xs text-ink-500">${mast}/${tot} 習得</span>
+            <span class="text-xs ${done ? 'text-gold-400' : 'text-jade-500'} font-mono">${pct}%</span>
+          </div>
+        </button>
+        <button class="w-full py-2 border-t border-ink-700/40 text-xs text-ink-400 hover:text-ink-200 hover:bg-ink-700/30 transition-colors"
+                onclick="openWordList(${u})">
+          単語一覧 →
+        </button>
+      </div>`;
   }).join("");
+}
+
+
+// ═══════════════════════════════════════════════════════════════
+// 単語一覧画面
+// ═══════════════════════════════════════════════════════════════
+let wordlistUnit = null;
+let wordlistFilter = "all";
+
+window.openWordList = function(unit) {
+  wordlistUnit = unit;
+  wordlistFilter = "all";
+  renderWordList();
+  showScreen("screen-wordlist");
+};
+
+function renderWordList() {
+  const words = wordsOfUnit(wordlistUnit);
+  const filtered = wordlistFilter === "all" ? words
+    : words.filter(w => getWordProgress(w.id).status === wordlistFilter);
+
+  const mastered  = words.filter(w => getWordProgress(w.id).status === "mastered").length;
+  const learning  = words.filter(w => getWordProgress(w.id).status === "learning").length;
+  const unlearned = words.length - mastered - learning;
+
+  document.getElementById("wordlist-title").textContent = `Unit ${wordlistUnit}`;
+  document.getElementById("wordlist-subtitle").textContent =
+    `習得済 ${mastered}  /  学習中 ${learning}  /  未習得 ${unlearned}`;
+
+  document.querySelectorAll(".wl-filter-btn").forEach(btn => {
+    const active = btn.dataset.filter === wordlistFilter;
+    btn.className = "wl-filter-btn px-2.5 py-1 rounded-lg text-xs font-medium transition-all " +
+      (active ? "bg-ink-600 text-ink-100" : "text-ink-400 hover:text-ink-200");
+  });
+
+  const STATUS = {
+    mastered: { label: "習得済",  cls: "bg-jade-500/20 text-jade-400 border-jade-500/30" },
+    learning: { label: "学習中",  cls: "bg-ember-500/20 text-ember-400 border-ember-500/30" },
+    unlearned:{ label: "未習得",  cls: "bg-ink-700/60 text-ink-500 border-ink-600/30" },
+  };
+
+  document.getElementById("wordlist-body").innerHTML = filtered.length === 0
+    ? `<p class="text-center text-ink-500 py-12 text-sm">該当する単語がありません</p>`
+    : filtered.map(w => {
+        const p  = getWordProgress(w.id);
+        const s  = STATUS[p.status] ?? STATUS.unlearned;
+        const sc = p.successCount ?? 0;
+        return `
+          <div class="flex items-center gap-3 px-4 py-3 rounded-2xl border border-ink-700/40 bg-ink-800/50">
+            <div class="flex-1 min-w-0">
+              <p class="text-ink-100 font-medium text-sm">${w.word}</p>
+              <p class="text-ink-400 text-xs mt-0.5">${w.meaning}</p>
+            </div>
+            <div class="flex items-center gap-2 flex-shrink-0">
+              <span class="text-xs text-ink-600 font-mono">${sc}/3</span>
+              <span class="px-2 py-0.5 rounded-full border text-xs font-medium ${s.cls}">${s.label}</span>
+            </div>
+          </div>`;
+      }).join("");
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -879,6 +944,18 @@ function bindEvents() {
     renderHome();
     showScreen("screen-home");
     document.getElementById("card-scene").style.visibility = "";
+  });
+
+  document.getElementById("btn-back-from-wordlist").addEventListener("click", () => {
+    renderHome();
+    showScreen("screen-home");
+  });
+
+  document.getElementById("screen-wordlist").addEventListener("click", e => {
+    const btn = e.target.closest(".wl-filter-btn");
+    if (!btn) return;
+    wordlistFilter = btn.dataset.filter;
+    renderWordList();
   });
 
   // ── 🔊 ミュートトグル ──
