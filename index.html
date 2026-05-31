@@ -203,7 +203,9 @@
       <button type="button" id="btn-back-home" class="hidden text-ink-400 hover:text-jade-400 transition-colors p-1.5 rounded-lg hover:bg-ink-800 shrink-0">
         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
       </button>
-      <h1 class="font-display text-lg text-ink-50 tracking-tight whitespace-nowrap">英検準1級<span class="text-jade-400 ml-1">単語マスター</span></h1>
+      <h1 class="font-display text-lg text-ink-50 tracking-tight whitespace-nowrap">
+        <span class="hidden sm:inline">英検準1級</span><span class="text-jade-400 sm:ml-1">単語マスター</span>
+      </h1>
     </div>
     <!-- Right: auth + sound, won't push title -->
     <div class="flex items-center gap-1.5 shrink-0">
@@ -483,7 +485,7 @@
   <!-- ─── TAB: LISTEN (リスニング) ─── -->
   <div id="tab-listen" class="tab-panel hidden">
     <div class="rounded-2xl border border-sky-500/30 bg-ink-800/80 p-6 mb-4 text-center min-h-[160px] flex flex-col items-center justify-center gap-4" style="box-shadow:0 10px 30px rgba(0,0,0,0.3); background:linear-gradient(135deg,rgba(14,165,233,0.08),rgba(29,30,46,0.9));">
-      <p class="text-xs text-sky-400/70 font-mono uppercase tracking-widest">読み上げを聞いて意味を選んでください</p>
+      <p class="text-xs text-sky-400/70 font-mono uppercase tracking-widest">読み上げを聞いて単語を選んでください</p>
       <button type="button" id="btn-listen-speak" class="w-20 h-20 rounded-full bg-sky-500/20 border-2 border-sky-500/40 flex items-center justify-center text-4xl transition-all hover:bg-sky-500/30 active:scale-95">
         🔊
       </button>
