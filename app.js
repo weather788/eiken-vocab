@@ -7,6 +7,8 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/fireba
 import {
   getAuth, GoogleAuthProvider, signInWithPopup, signInAnonymously,
   linkWithPopup, signOut, onAuthStateChanged,
+  createUserWithEmailAndPassword, signInWithEmailAndPassword,
+  EmailAuthProvider, linkWithCredential,
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 import {
   getFirestore, doc, setDoc, collection, getDocs,
@@ -958,6 +960,65 @@ function bindEvents() {
       showToast("サインイン失敗: " + e.message, "error");
     }
   });
+
+  // メール/パスワード ログイン
+  document.getElementById("btn-email-signin").addEventListener("click", async () => {
+    if (!firebaseReady) { showToast("Firebase未設定です", "error"); return; }
+    const email    = document.getElementById("input-email").value.trim();
+    const password = document.getElementById("input-password").value;
+    const errEl    = document.getElementById("email-auth-error");
+    errEl.classList.add("hidden");
+    if (!email || !password) { errEl.textContent = "メールとパスワードを入力してください"; errEl.classList.remove("hidden"); return; }
+    try {
+      if (currentUser?.isAnonymous) {
+        const credential = EmailAuthProvider.credential(email, password);
+        await linkWithCredential(currentUser, credential);
+        showToast("メールアカウントに連携しました！", "success");
+      } else {
+        await signInWithEmailAndPassword(auth, email, password);
+        showToast("ログインしました！", "success");
+      }
+      document.getElementById("modal-login").classList.add("hidden");
+    } catch (e) {
+      console.error(e);
+      const msg = e.code === "auth/wrong-password" ? "パスワードが違います" :
+                  e.code === "auth/user-not-found"  ? "このメールは登録されていません" :
+                  e.code === "auth/invalid-email"   ? "メールアドレスの形式が正しくありません" :
+                  e.message;
+      errEl.textContent = msg;
+      errEl.classList.remove("hidden");
+    }
+  });
+
+  // メール/パスワード 新規登録
+  document.getElementById("btn-email-signup").addEventListener("click", async () => {
+    if (!firebaseReady) { showToast("Firebase未設定です", "error"); return; }
+    const email    = document.getElementById("input-email").value.trim();
+    const password = document.getElementById("input-password").value;
+    const errEl    = document.getElementById("email-auth-error");
+    errEl.classList.add("hidden");
+    if (!email || !password) { errEl.textContent = "メールとパスワードを入力してください"; errEl.classList.remove("hidden"); return; }
+    if (password.length < 6)  { errEl.textContent = "パスワードは6文字以上にしてください"; errEl.classList.remove("hidden"); return; }
+    try {
+      if (currentUser?.isAnonymous) {
+        const credential = EmailAuthProvider.credential(email, password);
+        await linkWithCredential(currentUser, credential);
+        showToast("アカウントを作成しました！", "success");
+      } else {
+        await createUserWithEmailAndPassword(auth, email, password);
+        showToast("アカウントを作成しました！", "success");
+      }
+      document.getElementById("modal-login").classList.add("hidden");
+    } catch (e) {
+      console.error(e);
+      const msg = e.code === "auth/email-already-in-use" ? "このメールはすでに登録されています" :
+                  e.code === "auth/invalid-email"        ? "メールアドレスの形式が正しくありません" :
+                  e.code === "auth/weak-password"        ? "パスワードが弱すぎます" :
+                  e.message;
+      errEl.textContent = msg;
+      errEl.classList.remove("hidden");
+    }
+  });
   document.getElementById("btn-logout").addEventListener("click", async () => {
     if (!firebaseReady) return;
     await signOut(auth);
@@ -1013,7 +1074,7 @@ function setAuthUI(user) {
   if (user.isAnonymous) {
     label.textContent   = "匿名ユーザー";
     label.className     = "text-xs text-gold-400 font-mono";
-    btnAuth.textContent = "Googleで同期";
+    btnAuth.textContent = "アカウントで同期";
     btnAuth.classList.remove("hidden");
     btnLogout.classList.add("hidden");
   } else {
