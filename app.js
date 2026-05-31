@@ -331,7 +331,7 @@ function getReviewWords() {
 }
 
 // ─────────────────────────────────────────────────────────────
-// Firestore 進捗取得
+// Firestore 進捗取得 (ローカルとマージ：successCount が大きい方を採用)
 // ─────────────────────────────────────────────────────────────
 async function fetchFirestoreProgress(uid) {
   if (!firebaseReady) return;
@@ -339,19 +339,45 @@ async function fetchFirestoreProgress(uid) {
     const snap = await getDocs(collection(db, "users", uid, "progress"));
     snap.forEach(d => {
       const data = d.data();
-      progress[d.id] = {
+      const remote = {
         status:       data.status       ?? "unlearned",
         successCount: data.successCount ?? 0,
         lastReviewed: data.lastReviewed instanceof Timestamp
           ? data.lastReviewed.toDate().toISOString()
           : data.lastReviewed ?? null,
       };
+      const local = progress[d.id];
+      // ローカルの方が進んでいれば保持、そうでなければリモートを採用
+      if (!local || remote.successCount > local.successCount) {
+        progress[d.id] = remote;
+      }
     });
     saveLocalProgress();
     console.log("✅ Firestoreから進捗を同期しました");
   } catch (e) {
     console.warn("Firestore 進捗取得失敗:", e);
   }
+}
+
+// ローカルの全進捗を Firestore にアップロード
+// ─────────────────────────────────────────────────────────────
+async function uploadProgressToFirestore() {
+  if (!firebaseReady || !currentUser || currentUser.isAnonymous) return 0;
+  const entries = Object.entries(progress);
+  if (entries.length === 0) return 0;
+  let count = 0;
+  try {
+    await Promise.all(entries.map(([wordId, p]) =>
+      setDoc(
+        doc(db, "users", currentUser.uid, "progress", wordId),
+        { status: p.status, successCount: p.successCount, lastReviewed: p.lastReviewed ?? null },
+        { merge: true }
+      ).then(() => count++)
+    ));
+  } catch (e) {
+    console.warn("Firestore 一括アップロード失敗:", e);
+  }
+  return count;
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -1031,6 +1057,22 @@ function bindEvents() {
     await signInAnonymously(auth);
     showToast("ログアウトしました（匿名モードに戻りました）");
   });
+
+  document.getElementById("btn-upload-progress").addEventListener("click", async () => {
+    if (!currentUser || currentUser.isAnonymous) return;
+    const btn = document.getElementById("btn-upload-progress");
+    btn.textContent = "保存中…";
+    btn.disabled = true;
+    const count = await uploadProgressToFirestore();
+    btn.textContent = "↑ 保存";
+    btn.disabled = false;
+    showToast(`クラウドに保存しました（${count}語）`, "success");
+  });
+}
+
+function showUploadBtn(visible) {
+  const btn = document.getElementById("btn-upload-progress");
+  if (btn) btn.classList.toggle("hidden", !visible);
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -1048,8 +1090,11 @@ function setupAuth() {
       currentUser = user;
       setAuthUI(user);
       progress = loadLocalProgress();
+      // ローカルの進捗をまずアップロードしてからクラウドとマージ
+      if (!user.isAnonymous) await uploadProgressToFirestore();
       await fetchFirestoreProgress(user.uid);
       renderHome();
+      if (!user.isAnonymous) showUploadBtn(true);
     } else {
       try {
         await signInAnonymously(auth);
@@ -1083,11 +1128,13 @@ function setAuthUI(user) {
     btnAuth.textContent = "アカウントで同期";
     btnAuth.classList.remove("hidden");
     btnLogout.classList.add("hidden");
+    showUploadBtn(false);
   } else {
     label.textContent = user.displayName ?? user.email;
     label.className   = "text-xs text-jade-400 font-mono";
     btnAuth.classList.add("hidden");
     btnLogout.classList.remove("hidden");
+    showUploadBtn(true);
   }
 }
 
