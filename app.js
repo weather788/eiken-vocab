@@ -17,12 +17,13 @@ import {
 // 🔧 Firebase Config
 // ─────────────────────────────────────────────────────────────
 const firebaseConfig = {
-  apiKey:            "YOUR_API_KEY",
-  authDomain:        "YOUR_AUTH_DOMAIN",
-  projectId:         "YOUR_PROJECT_ID",
-  storageBucket:     "YOUR_STORAGE_BUCKET",
-  messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
-  appId:             "YOUR_APP_ID",
+  apiKey:            "AIzaSyB-Hj_16a0Ev7k0MGuf8oSX1Y9IyptLxWQ",
+  authDomain:        "eiken-vocab-55139.firebaseapp.com",
+  projectId:         "eiken-vocab-55139",
+  storageBucket:     "eiken-vocab-55139.firebasestorage.app",
+  messagingSenderId: "353608617207",
+  appId:             "1:353608617207:web:ce00fb1a8e5427867197f2",
+  measurementId:     "G-4RK8KHRS6P",
 };
 
 let app, auth, db;
@@ -72,15 +73,21 @@ function playSound(type) {
         break;
 
       case "correct":
-        // 正解：明るい上昇音
-        osc.type = "triangle";
-        osc.frequency.setValueAtTime(523, now);        // C5
-        osc.frequency.setValueAtTime(659, now + 0.1);  // E5
-        osc.frequency.setValueAtTime(784, now + 0.2);  // G5
-        gain.gain.setValueAtTime(0.2, now);
-        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
-        osc.start(now); osc.stop(now + 0.35);
-        break;
+        // 正解：明るい3音（各ノートをそれぞれ独立したオシレータで鳴らしクリーンに止める）
+        [523, 659, 784].forEach((freq, i) => {
+          const o = ctx.createOscillator();
+          const g = ctx.createGain();
+          o.connect(g); g.connect(ctx.destination);
+          o.type = "triangle";
+          o.frequency.setValueAtTime(freq, now + i * 0.1);
+          g.gain.setValueAtTime(0.22, now + i * 0.1);
+          // フェードアウトせずノートの長さで止める（気持ち悪いフェードなし）
+          g.gain.setValueAtTime(0.22, now + i * 0.1 + 0.08);
+          g.gain.linearRampToValueAtTime(0, now + i * 0.1 + 0.1);
+          o.start(now + i * 0.1);
+          o.stop(now + i * 0.1 + 0.11);
+        });
+        return;
 
       case "wrong":
         // 不正解：低いブザー音
@@ -179,11 +186,13 @@ let allWords    = [];
 let progress    = {};
 let currentUser = null;
 
-let currentUnit    = null;
-let currentSession = 0;
-const SESSION_SIZE = 20;
-let sessionWords   = [];
-let currentTab     = "card";
+let currentUnit         = null;
+let currentSession      = 0;
+const SESSION_SIZE      = 20;
+let sessionWords        = [];
+let currentTab          = "card";
+let currentFilterMode   = "all";   // "all" | "unlearned" | "notMastered"
+let currentFilteredWords = [];
 
 // カードモード
 let cardIdx     = 0;
@@ -247,6 +256,15 @@ function getUnits() {
 }
 function wordsOfUnit(unit) {
   return allWords.filter(w => w.unit === unit);
+}
+
+// 未習得（unlearned）のみ返す
+function unlearnedOfUnit(unit) {
+  return wordsOfUnit(unit).filter(w => getWordProgress(w.id).status === "unlearned");
+}
+// 未習得 + 学習中（mastered以外）を返す
+function notMasteredOfUnit(unit) {
+  return wordsOfUnit(unit).filter(w => getWordProgress(w.id).status !== "mastered");
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -362,6 +380,29 @@ function showScreen(id) {
 }
 
 // ═══════════════════════════════════════════════════════════════
+// 🎯 学習フィルター
+// ═══════════════════════════════════════════════════════════════
+const FILTER_DESC = {
+  all:         "全単語を表示しています。ユニットをタップして学習開始。",
+  notMastered: "未習得・学習中の単語のみ表示。ユニットをタップして弱点集中学習。",
+  unlearned:   "まだ一度も学習していない単語のみ。ユニットをタップして新規学習。",
+};
+
+window.setFilter = function(mode) {
+  currentFilterMode = mode;
+  // ボタンのスタイル切り替え
+  document.querySelectorAll(".filter-btn").forEach(btn => {
+    const isActive = btn.id === `filter-${mode}`;
+    btn.classList.toggle("bg-ink-700/60",  isActive);
+    btn.classList.toggle("text-jade-400",  isActive);
+    btn.classList.toggle("text-ink-400",   !isActive);
+  });
+  const descEl = document.getElementById("filter-desc");
+  if (descEl) descEl.textContent = FILTER_DESC[mode] ?? "";
+  renderHome();
+};
+
+// ═══════════════════════════════════════════════════════════════
 // ホーム画面
 // ═══════════════════════════════════════════════════════════════
 function renderHome() {
@@ -388,21 +429,33 @@ function renderHome() {
   document.getElementById("review-alert").classList.toggle("hidden", reviewWords.length === 0);
   document.getElementById("review-count").textContent = reviewWords.length;
 
-  // ユニットグリッド
+  // ユニットグリッド（フィルター対応）
   document.getElementById("unit-grid").innerHTML = getUnits().map(u => {
-    const words = wordsOfUnit(u);
-    const tot   = words.length;
-    const mast  = words.filter(w => getWordProgress(w.id).status === "mastered").length;
-    const pct   = tot ? Math.round((mast / tot) * 100) : 0;
-    const done  = pct === 100;
+    const words      = wordsOfUnit(u);
+    const tot        = words.length;
+    const mast       = words.filter(w => getWordProgress(w.id).status === "mastered").length;
+    const pct        = tot ? Math.round((mast / tot) * 100) : 0;
+    const done       = pct === 100;
+
+    // フィルター別の対象語数
+    const unlCnt  = unlearnedOfUnit(u).length;
+    const notMCnt = notMasteredOfUnit(u).length;
+    const filterCount = currentFilterMode === "unlearned"    ? unlCnt
+                      : currentFilterMode === "notMastered"  ? notMCnt
+                      : tot;
+    const filterLabel = currentFilterMode === "unlearned"    ? `未学習 ${unlCnt}語`
+                      : currentFilterMode === "notMastered"  ? `対象 ${notMCnt}語`
+                      : `${tot}語`;
+    const isEmpty = filterCount === 0;
+
     return `
-      <button class="unit-card rounded-2xl border ${done ? 'border-gold-400/40 bg-gold-400/5' : 'border-ink-700/60 bg-ink-800/60'} p-4 text-left"
+      <button class="unit-card rounded-2xl border ${done ? 'border-gold-400/40 bg-gold-400/5' : isEmpty ? 'border-ink-700/30 bg-ink-800/30 opacity-50' : 'border-ink-700/60 bg-ink-800/60'} p-4 text-left"
               onclick="startUnit(${u})">
         <div class="flex items-center justify-between mb-3">
           <span class="font-display text-lg ${done ? 'text-gold-300' : 'text-ink-100'}">
             ${done ? '✓ ' : ''}Unit ${u}
           </span>
-          <span class="text-xs font-mono text-ink-500">${tot}語</span>
+          <span class="text-xs font-mono ${isEmpty ? 'text-ink-600' : currentFilterMode !== 'all' ? 'text-ember-400' : 'text-ink-500'}">${filterLabel}</span>
         </div>
         <div class="w-full h-1.5 rounded-full bg-ink-700 mb-2">
           <div class="progress-fill h-full rounded-full ${done ? 'bg-gold-400' : 'bg-gradient-to-r from-jade-600 to-jade-400'}"
@@ -419,29 +472,59 @@ function renderHome() {
 // ═══════════════════════════════════════════════════════════════
 // ユニット開始
 // ═══════════════════════════════════════════════════════════════
-window.startUnit = function(unit) {
+window.startUnit = function(unit, filterMode) {
   playSound("click");
-  currentUnit = unit;
-  const words    = wordsOfUnit(unit);
-  const sessions = Math.ceil(words.length / SESSION_SIZE);
+  currentUnit       = unit;
+  currentFilterMode = filterMode ?? currentFilterMode;
 
+  const allU       = wordsOfUnit(unit);
+  const unlearned  = unlearnedOfUnit(unit);
+  const notMastered = notMasteredOfUnit(unit);
+
+  // フィルターに応じた単語リスト
+  let filteredWords;
+  if (currentFilterMode === "unlearned")    filteredWords = unlearned;
+  else if (currentFilterMode === "notMastered") filteredWords = notMastered;
+  else                                           filteredWords = allU;
+
+  currentFilteredWords = filteredWords;
+
+  if (filteredWords.length === 0) {
+    showToast(
+      currentFilterMode === "unlearned" ? "このユニットに未習得語はありません 🎉" : "このユニットに未習得・学習中語はありません 🎉",
+      "success"
+    );
+    return;
+  }
+
+  const sessions = Math.ceil(filteredWords.length / SESSION_SIZE);
   document.getElementById("study-title").textContent = `Unit ${unit}`;
+
+  const filterLabel = {
+    all:         `全${allU.length}語`,
+    unlearned:   `未習得 ${unlearned.length}語`,
+    notMastered: `未習得+学習中 ${notMastered.length}語`,
+  }[currentFilterMode];
+  document.getElementById("study-subtitle").textContent = filterLabel;
 
   const sel = document.getElementById("session-select");
   sel.innerHTML = Array.from({ length: sessions }, (_, i) => {
     const from = i * SESSION_SIZE + 1;
-    const to   = Math.min((i + 1) * SESSION_SIZE, words.length);
+    const to   = Math.min((i + 1) * SESSION_SIZE, filteredWords.length);
     return `<option value="${i}">${i + 1}/${sessions} (${from}-${to}語)</option>`;
   }).join("");
   sel.value = "0";
 
-  loadSession(unit, 0);
+  loadSessionFromWords(filteredWords, 0);
   showScreen("screen-study");
 };
 
 function loadSession(unit, sessionIdx) {
+  loadSessionFromWords(currentFilteredWords.length > 0 ? currentFilteredWords : wordsOfUnit(unit), sessionIdx);
+}
+
+function loadSessionFromWords(words, sessionIdx) {
   currentSession = sessionIdx;
-  const words    = wordsOfUnit(unit);
   const sessions = Math.ceil(words.length / SESSION_SIZE);
   sessionWords   = words.slice(sessionIdx * SESSION_SIZE, (sessionIdx + 1) * SESSION_SIZE);
   document.getElementById("study-subtitle").textContent = `セッション ${sessionIdx + 1}/${sessions}`;
