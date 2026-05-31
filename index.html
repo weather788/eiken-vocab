@@ -24,6 +24,8 @@
             ember: { 400:'#fb923c', 500:'#f97316', 600:'#ea580c' },
             rose:  { 400:'#fb7185', 500:'#f43f5e' },
             gold:  { 300:'#fde68a', 400:'#fbbf24', 500:'#f59e0b' },
+            sky:   { 400:'#38bdf8', 500:'#0ea5e9' },
+            violet:{ 400:'#a78bfa', 500:'#8b5cf6' },
           },
           animation: {
             'flip-in':  'flipIn 0.4s ease forwards',
@@ -52,6 +54,8 @@
       color: #dcdde3;
       font-family: 'DM Sans', sans-serif;
       min-height: 100vh;
+      /* prevent horizontal scroll */
+      overflow-x: hidden;
       background-image:
         radial-gradient(ellipse 80% 50% at 20% 10%, rgba(74,77,113,0.15) 0%, transparent 60%),
         radial-gradient(ellipse 60% 40% at 80% 90%, rgba(34,197,94,0.05) 0%, transparent 50%);
@@ -78,25 +82,30 @@
     /* ─── Progress bar ─── */
     .progress-fill { transition: width 0.5s cubic-bezier(0.4,0,0.2,1); }
 
-    /* ─── Choice buttons ─── */
+    /* ─── Choice/Listen buttons ─── */
     .choice-btn {
       transition: all 0.15s ease;
       border: 2px solid transparent;
+      min-height: 52px;
     }
     .choice-btn:hover:not(:disabled) {
       border-color: rgba(74,222,128,0.4);
       background: rgba(74,222,128,0.06);
       transform: translateY(-1px);
     }
+    .choice-btn:active:not(:disabled) { transform: scale(0.97); }
     .choice-btn.correct  { border-color: #4ade80; background: rgba(74,222,128,0.12); }
     .choice-btn.incorrect{ border-color: #fb7185; background: rgba(251,113,133,0.12); animation: shake 0.4s ease; }
 
     /* ─── Input focus ─── */
     .spell-input:focus { outline: none; box-shadow: 0 0 0 2px rgba(74,222,128,0.5); }
+    /* Prevent iOS zoom on focus */
+    .spell-input { font-size: 16px !important; }
 
-    /* ─── Unit card hover ─── */
+    /* ─── Unit card ─── */
     .unit-card { transition: all 0.2s ease; }
     .unit-card:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.4); }
+    .unit-card:active { transform: scale(0.97); }
 
     /* ─── Scrollbar ─── */
     ::-webkit-scrollbar { width: 6px; }
@@ -126,72 +135,59 @@
       opacity: 1;
     }
 
-    /* ─── Mobile overrides ─── */
+    /* ─── Timer bar ─── */
+    .timer-bar-fill {
+      transition: width 0.1s linear;
+    }
+    .timer-bar-fill.danger { background: #fb7185; }
 
-    /* Safe area for notch/home indicator */
-    body {
-      min-height: 100dvh;
-      padding-bottom: env(safe-area-inset-bottom);
+    /* ─── Listening pulse ─── */
+    @keyframes speakerPulse {
+      0%, 100% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.12); opacity: 0.8; }
+    }
+    .speaking { animation: speakerPulse 0.6s ease-in-out infinite; }
+
+    /* ─── Tab scroll on mobile (6 tabs) ─── */
+    .tab-scroll {
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+    }
+    .tab-scroll::-webkit-scrollbar { display: none; }
+    .tab-scroll-inner {
+      display: flex;
+      gap: 4px;
+      min-width: max-content;
+    }
+    .tab-scroll-inner .tab-btn {
+      flex-shrink: 0;
+      padding: 8px 12px;
+      white-space: nowrap;
     }
 
-    /* Larger tap targets for buttons */
-    .choice-btn { min-height: 52px; }
-    .choice-btn:active:not(:disabled) { transform: scale(0.97); }
-
-    /* Card word: responsive font size */
-    #card-word-front { font-size: clamp(1.8rem, 9vw, 3rem); }
-    #card-meaning-back { font-size: clamp(1.3rem, 6vw, 2.5rem); }
-
-    /* Spell input: 16px prevents iOS auto-zoom */
-    #spell-input { font-size: 16px !important; }
-
-    /* Spell submit button: stick above keyboard */
-    @supports (height: 100dvh) {
-      .spell-action-bar {
-        position: sticky;
-        bottom: 0;
-        background: #0f1019;
-        padding: 12px 0 max(12px, env(safe-area-inset-bottom));
-        border-top: 1px solid rgba(44,46,68,0.6);
-        margin-top: 4px;
-      }
+    /* ─── Header: never overflow ─── */
+    header { max-width: 100vw; }
+    #auth-label {
+      max-width: 80px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
-
-    /* Card scene: fluid height on narrow screens */
-    @media (max-width: 480px) {
-      #card-scene { height: clamp(200px, 44vw, 280px) !important; }
-    }
-
-    /* Prevent overscroll bounce on study screen */
-    #screen-study, #screen-wordlist { overscroll-behavior-y: contain; }
-
-    /* Auth label: hide on very small screens to prevent header overflow */
-    @media (max-width: 390px) {
+    /* On very small screens hide the label entirely */
+    @media (max-width: 360px) {
       #auth-label { display: none; }
+      #auth-status .w-2 { display: none; }
     }
 
-    /* Choice options: single column on mobile */
-    @media (max-width: 480px) {
-      #choice-options { grid-template-columns: 1fr !important; }
+    /* ─── Screen padding fix ─── */
+    .screen-content {
+      max-width: 768px;
+      margin: 0 auto;
+      padding: 20px 16px;
     }
-
-    /* Session end buttons: stack vertically on mobile */
-    @media (max-width: 480px) {
-      .session-end-actions { flex-direction: column; align-items: stretch; }
-      .session-end-actions button { text-align: center; }
-    }
-
-    /* Modal: slide up from bottom on mobile */
-    @media (max-width: 640px) {
-      #modal-login {
-        align-items: flex-end;
-      }
-      #modal-login > div {
-        border-radius: 1.5rem 1.5rem 0 0;
-        padding-bottom: max(24px, env(safe-area-inset-bottom));
-        max-width: 100%;
-        margin: 0;
-      }
+    @media (min-width: 640px) {
+      .screen-content { padding: 24px 24px; }
     }
   </style>
 </head>
@@ -200,34 +196,25 @@
 <!-- ═══════════════════════════════════════════════════════════ -->
 <!-- HEADER                                                       -->
 <!-- ═══════════════════════════════════════════════════════════ -->
-<header class="sticky top-0 z-50 border-b border-ink-700/60" style="background:rgba(15,16,25,0.92);backdrop-filter:blur(12px);">
-  <div class="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
-    <div class="flex items-center gap-3">
-      <button type="button" id="btn-back-home" class="hidden text-ink-400 hover:text-jade-400 transition-colors p-1 rounded-lg hover:bg-ink-800">
+<header class="sticky top-0 z-50 border-b border-ink-700/60 w-full" style="background:rgba(15,16,25,0.92);backdrop-filter:blur(12px);">
+  <div class="max-w-5xl mx-auto px-3 py-2.5 flex items-center justify-between gap-2 min-w-0">
+    <!-- Left: back + title -->
+    <div class="flex items-center gap-2 min-w-0 shrink-0">
+      <button type="button" id="btn-back-home" class="hidden text-ink-400 hover:text-jade-400 transition-colors p-1.5 rounded-lg hover:bg-ink-800 shrink-0">
         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
       </button>
-      <h1 class="font-display text-xl text-ink-50 tracking-tight">英検準1級<span class="text-jade-400 ml-1">単語マスター</span></h1>
+      <h1 class="font-display text-lg text-ink-50 tracking-tight whitespace-nowrap">英検準1級<span class="text-jade-400 ml-1">単語マスター</span></h1>
     </div>
-    <div class="flex items-center gap-3">
-      <!-- Auth status -->
-      <div id="auth-status" class="flex items-center gap-2">
-        <div id="auth-loading" class="w-2 h-2 rounded-full bg-gold-400 animate-pulse"></div>
-        <span id="auth-label" class="text-xs text-ink-400 font-mono truncate max-w-[100px] sm:max-w-none">接続中...</span>
+    <!-- Right: auth + sound, won't push title -->
+    <div class="flex items-center gap-1.5 shrink-0">
+      <div id="auth-status" class="flex items-center gap-1.5">
+        <div id="auth-loading" class="w-2 h-2 rounded-full bg-gold-400 animate-pulse shrink-0"></div>
+        <span id="auth-label" class="text-xs text-ink-400 font-mono">接続中...</span>
       </div>
-      <button type="button" id="btn-auth" class="text-xs px-3 py-1.5 rounded-lg bg-ink-700 hover:bg-ink-600 text-ink-200 transition-colors font-medium hidden">
-        ログイン
-      </button>
-      <button type="button" id="btn-upload-progress" title="ローカルの進捗をクラウドに保存" class="text-xs px-3 py-1.5 rounded-lg bg-jade-700 hover:bg-jade-600 text-jade-100 transition-colors font-medium hidden">
-        ↑ 保存
-      </button>
-      <button type="button" id="btn-logout" class="text-xs px-3 py-1.5 rounded-lg bg-ink-700 hover:bg-ink-600 text-ink-200 transition-colors font-medium hidden">
-        ログアウト
-      </button>
-      <!-- 🔊 ミュートボタン -->
-      <button type="button" id="btn-sound" title="効果音オン/オフ"
-        class="w-8 h-8 rounded-lg bg-ink-700 hover:bg-ink-600 text-ink-300 transition-colors flex items-center justify-center text-base">
-        🔊
-      </button>
+      <button type="button" id="btn-auth" class="text-xs px-2.5 py-1.5 rounded-lg bg-ink-700 hover:bg-ink-600 text-ink-200 transition-colors font-medium hidden whitespace-nowrap">ログイン</button>
+      <button type="button" id="btn-upload-progress" title="保存" class="text-xs px-2.5 py-1.5 rounded-lg bg-jade-700 hover:bg-jade-600 text-jade-100 transition-colors font-medium hidden">↑</button>
+      <button type="button" id="btn-logout" class="text-xs px-2.5 py-1.5 rounded-lg bg-ink-700 hover:bg-ink-600 text-ink-200 transition-colors font-medium hidden whitespace-nowrap">ログアウト</button>
+      <button type="button" id="btn-sound" title="効果音オン/オフ" class="w-8 h-8 rounded-lg bg-ink-700 hover:bg-ink-600 text-ink-300 transition-colors flex items-center justify-center text-base shrink-0">🔊</button>
     </div>
   </div>
 </header>
@@ -235,50 +222,50 @@
 <!-- ═══════════════════════════════════════════════════════════ -->
 <!-- SCREEN: HOME                                                 -->
 <!-- ═══════════════════════════════════════════════════════════ -->
-<div id="screen-home" class="max-w-5xl mx-auto px-4 py-8">
+<div id="screen-home" class="screen-content">
 
   <!-- Review Alert -->
-  <div id="review-alert" class="hidden mb-6 animate-slide-up">
-    <div class="relative overflow-hidden rounded-2xl border border-gold-400/30 p-4 flex items-center gap-4"
+  <div id="review-alert" class="hidden mb-5 animate-slide-up">
+    <div class="relative overflow-hidden rounded-2xl border border-gold-400/30 p-4 flex items-center gap-3"
          style="background:linear-gradient(135deg,rgba(251,191,36,0.08),rgba(245,158,11,0.04));">
-      <div class="relative flex-shrink-0">
+      <div class="relative shrink-0">
         <div class="w-10 h-10 rounded-full bg-gold-400/20 flex items-center justify-center">
           <svg class="w-5 h-5 text-gold-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
         </div>
         <div class="absolute inset-0 rounded-full bg-gold-400/20 animate-pulse-ring"></div>
       </div>
-      <div class="flex-1">
+      <div class="flex-1 min-w-0">
         <p class="text-gold-300 font-semibold text-sm">今日の復習タイム！</p>
         <p class="text-gold-400/70 text-xs mt-0.5">忘却曲線に基づく <span id="review-count" class="font-bold text-gold-300">0</span> 語が復習待ちです</p>
       </div>
-      <button type="button" id="btn-start-review" class="flex-shrink-0 px-4 py-2 rounded-xl bg-gold-400/20 hover:bg-gold-400/30 text-gold-300 text-sm font-semibold transition-colors border border-gold-400/30">
-        復習する →
+      <button type="button" id="btn-start-review" class="shrink-0 px-3 py-2 rounded-xl bg-gold-400/20 hover:bg-gold-400/30 text-gold-300 text-sm font-semibold transition-colors border border-gold-400/30">
+        復習 →
       </button>
     </div>
   </div>
 
   <!-- Stats bar -->
-  <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
-    <div class="rounded-2xl p-4 border border-ink-700/60 bg-ink-800/60">
+  <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5 mb-4">
+    <div class="rounded-2xl p-3 border border-ink-700/60 bg-ink-800/60">
       <p class="text-xs text-ink-400 mb-1">総単語数</p>
       <p class="font-display text-2xl text-ink-100" id="stat-total">—</p>
     </div>
-    <div class="rounded-2xl p-4 border border-jade-500/30 bg-jade-500/5">
+    <div class="rounded-2xl p-3 border border-jade-500/30 bg-jade-500/5">
       <p class="text-xs text-jade-400 mb-1">習得済み</p>
       <p class="font-display text-2xl text-jade-400" id="stat-mastered">—</p>
     </div>
-    <div class="rounded-2xl p-4 border border-ember-500/30 bg-ember-500/5">
+    <div class="rounded-2xl p-3 border border-ember-500/30 bg-ember-500/5">
       <p class="text-xs text-ember-400 mb-1">学習中</p>
       <p class="font-display text-2xl text-ember-400" id="stat-learning">—</p>
     </div>
-    <div class="rounded-2xl p-4 border border-rose-500/30 bg-rose-500/5">
+    <div class="rounded-2xl p-3 border border-rose-500/30 bg-rose-500/5">
       <p class="text-xs text-rose-400 mb-1">連続学習</p>
       <p class="font-display text-xl text-rose-300" id="stat-streak">🔥 0日</p>
     </div>
   </div>
 
   <!-- 全体進捗バー -->
-  <div class="mb-8 rounded-2xl border border-ink-700/60 bg-ink-800/40 px-5 py-4">
+  <div class="mb-6 rounded-2xl border border-ink-700/60 bg-ink-800/40 px-4 py-3.5">
     <div class="flex items-center justify-between mb-2">
       <span class="text-xs text-ink-400 font-medium">全体進捗</span>
       <span class="text-xs text-ink-500 font-mono" id="overall-progress-label">0 / 0語習得</span>
@@ -288,36 +275,27 @@
     </div>
   </div>
 
-  <!-- Unit Grid ヘッダー + フィルターバー -->
+  <!-- Unit Grid header -->
   <div class="mb-3 flex items-center justify-between">
     <h2 class="font-display text-lg text-ink-100">ユニット一覧</h2>
     <span class="text-xs text-ink-500 font-mono">Unit 1 〜 15</span>
   </div>
 
-  <!-- 🎯 学習フィルター切り替え -->
-  <div class="flex gap-2 mb-5 p-1 rounded-xl bg-ink-800/80 border border-ink-700/60">
+  <!-- フィルター -->
+  <div class="flex gap-1.5 mb-4 p-1 rounded-xl bg-ink-800/80 border border-ink-700/60">
     <button type="button" id="filter-all"
       class="filter-btn flex-1 py-2 rounded-lg text-xs font-semibold transition-all bg-ink-700/60 text-jade-400"
-      onclick="setFilter('all')">
-      📚 全単語
-    </button>
+      onclick="setFilter('all')">📚 全単語</button>
     <button type="button" id="filter-notMastered"
-      class="filter-btn flex-1 py-2 rounded-lg text-xs font-semibold transition-all text-ink-400 hover:text-ink-200"
-      onclick="setFilter('notMastered')">
-      🔥 未習得・学習中
-    </button>
+      class="filter-btn flex-1 py-2 rounded-lg text-xs font-semibold transition-all text-ink-400"
+      onclick="setFilter('notMastered')">🔥 未習得</button>
     <button type="button" id="filter-unlearned"
-      class="filter-btn flex-1 py-2 rounded-lg text-xs font-semibold transition-all text-ink-400 hover:text-ink-200"
-      onclick="setFilter('unlearned')">
-      ✦ 未学習のみ
-    </button>
+      class="filter-btn flex-1 py-2 rounded-lg text-xs font-semibold transition-all text-ink-400"
+      onclick="setFilter('unlearned')">✦ 未学習</button>
   </div>
-  <!-- フィルター説明 -->
-  <p id="filter-desc" class="text-xs text-ink-500 mb-4 text-center">
-    全単語を表示しています。ユニットをタップして学習開始。
-  </p>
+  <p id="filter-desc" class="text-xs text-ink-500 mb-4 text-center">全単語を表示しています。ユニットをタップして学習開始。</p>
 
-  <div id="unit-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+  <div id="unit-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2.5 sm:gap-3">
     <!-- Populated by JS -->
   </div>
 </div>
@@ -325,60 +303,53 @@
 <!-- ═══════════════════════════════════════════════════════════ -->
 <!-- SCREEN: WORD LIST                                            -->
 <!-- ═══════════════════════════════════════════════════════════ -->
-<div id="screen-wordlist" class="hidden max-w-3xl mx-auto px-4 py-6">
-  <div class="flex items-center gap-3 mb-5">
+<div id="screen-wordlist" class="hidden screen-content">
+  <div class="flex items-center gap-3 mb-5 flex-wrap">
     <button type="button" id="btn-back-from-wordlist"
-      class="w-9 h-9 rounded-xl bg-ink-800 hover:bg-ink-700 border border-ink-700/60 flex items-center justify-center text-ink-300 transition-colors">
+      class="w-9 h-9 rounded-xl bg-ink-800 hover:bg-ink-700 border border-ink-700/60 flex items-center justify-center text-ink-300 transition-colors shrink-0">
       <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
     </button>
-    <div>
+    <div class="min-w-0">
       <h2 class="font-display text-xl text-ink-100" id="wordlist-title">Unit X</h2>
       <p class="text-xs text-ink-500" id="wordlist-subtitle"></p>
     </div>
-    <!-- ステータスフィルター -->
-    <div class="ml-auto flex gap-1 p-1 rounded-xl bg-ink-800 border border-ink-700/60">
+    <div class="ml-auto flex gap-1 p-1 rounded-xl bg-ink-800 border border-ink-700/60 shrink-0">
       <button type="button" class="wl-filter-btn px-2.5 py-1 rounded-lg text-xs font-medium transition-all bg-ink-600 text-ink-100" data-filter="all">全て</button>
-      <button type="button" class="wl-filter-btn px-2.5 py-1 rounded-lg text-xs font-medium transition-all text-ink-400 hover:text-ink-200" data-filter="mastered">習得済</button>
-      <button type="button" class="wl-filter-btn px-2.5 py-1 rounded-lg text-xs font-medium transition-all text-ink-400 hover:text-ink-200" data-filter="learning">学習中</button>
-      <button type="button" class="wl-filter-btn px-2.5 py-1 rounded-lg text-xs font-medium transition-all text-ink-400 hover:text-ink-200" data-filter="unlearned">未習得</button>
+      <button type="button" class="wl-filter-btn px-2.5 py-1 rounded-lg text-xs font-medium transition-all text-ink-400" data-filter="mastered">習得済</button>
+      <button type="button" class="wl-filter-btn px-2.5 py-1 rounded-lg text-xs font-medium transition-all text-ink-400" data-filter="learning">学習中</button>
+      <button type="button" class="wl-filter-btn px-2.5 py-1 rounded-lg text-xs font-medium transition-all text-ink-400" data-filter="unlearned">未習得</button>
     </div>
   </div>
-  <div id="wordlist-body" class="space-y-2">
-    <!-- Populated by JS -->
-  </div>
+  <div id="wordlist-body" class="space-y-2"></div>
 </div>
 
 <!-- ═══════════════════════════════════════════════════════════ -->
 <!-- SCREEN: STUDY                                                -->
 <!-- ═══════════════════════════════════════════════════════════ -->
-<div id="screen-study" class="hidden max-w-3xl mx-auto px-4 py-6">
+<div id="screen-study" class="hidden screen-content">
 
   <!-- Unit title + session info -->
-  <div class="mb-6 flex items-center justify-between">
-    <div>
-      <h2 class="font-display text-xl text-ink-100" id="study-title">Unit 1</h2>
+  <div class="mb-4 flex items-center justify-between gap-2">
+    <div class="min-w-0">
+      <h2 class="font-display text-xl text-ink-100 truncate" id="study-title">Unit 1</h2>
       <p class="text-xs text-ink-500 mt-0.5" id="study-subtitle">セッション 1/6</p>
     </div>
-    <!-- Session selector -->
-    <div class="flex items-center gap-2">
-      <span class="text-xs text-ink-500">セッション</span>
-      <select id="session-select"
-        class="text-xs bg-ink-800 border border-ink-600 rounded-lg px-2 py-1.5 text-ink-200 focus:outline-none focus:border-jade-500">
-      </select>
+    <div class="flex items-center gap-2 shrink-0">
+      <span class="text-xs text-ink-500 hidden sm:block">セッション</span>
+      <select id="session-select" class="text-xs bg-ink-800 border border-ink-600 rounded-lg px-2 py-1.5 text-ink-200 focus:outline-none focus:border-jade-500"></select>
     </div>
   </div>
 
-  <!-- Tab switcher -->
-  <div class="flex gap-1 p-1 rounded-xl bg-ink-800/80 border border-ink-700/60 mb-6">
-    <button type="button" class="tab-btn active flex-1 py-2 rounded-lg text-sm font-medium text-jade-400 bg-ink-700/60" data-tab="card">
-      <span class="mr-1">🃏</span> カード
-    </button>
-    <button type="button" class="tab-btn flex-1 py-2 rounded-lg text-sm font-medium text-ink-400 hover:text-ink-200" data-tab="choice">
-      <span class="mr-1">🎯</span> 4択
-    </button>
-    <button type="button" class="tab-btn flex-1 py-2 rounded-lg text-sm font-medium text-ink-400 hover:text-ink-200" data-tab="spell">
-      <span class="mr-1">✍️</span> 記述
-    </button>
+  <!-- Tab switcher: scrollable on mobile -->
+  <div class="tab-scroll mb-5 p-1 rounded-xl bg-ink-800/80 border border-ink-700/60">
+    <div class="tab-scroll-inner">
+      <button type="button" class="tab-btn active rounded-lg text-sm font-medium text-jade-400 bg-ink-700/60" data-tab="card">🃏 カード</button>
+      <button type="button" class="tab-btn rounded-lg text-sm font-medium text-ink-400" data-tab="choice">🎯 4択</button>
+      <button type="button" class="tab-btn rounded-lg text-sm font-medium text-ink-400" data-tab="spell">✍️ 記述</button>
+      <button type="button" class="tab-btn rounded-lg text-sm font-medium text-ink-400" data-tab="ja2en">🔄 日→英</button>
+      <button type="button" class="tab-btn rounded-lg text-sm font-medium text-ink-400" data-tab="listen">🔊 聴取</button>
+      <button type="button" class="tab-btn rounded-lg text-sm font-medium text-ink-400" data-tab="timed">⏱ タイム</button>
+    </div>
   </div>
 
   <!-- Progress bar (for test modes) -->
@@ -394,246 +365,227 @@
 
   <!-- ─── TAB: CARD ─── -->
   <div id="tab-card" class="tab-panel">
-
-    <!-- Card scene -->
-    <div class="card-scene w-full" style="height:280px;" id="card-scene">
+    <div class="card-scene w-full" style="height:clamp(220px,45vw,280px);" id="card-scene">
       <div class="card-inner" id="card-inner">
-        <!-- Front -->
         <div class="card-face card-front bg-ink-800 border border-ink-600/60" style="box-shadow:0 20px 60px rgba(0,0,0,0.5);">
-          <div class="absolute top-4 right-4 flex items-center gap-2">
+          <div class="absolute top-3 right-3 flex items-center gap-1.5">
             <span id="card-status-badge" class="text-xs font-mono text-ink-500 bg-ink-700 px-2 py-0.5 rounded-full">未学習</span>
             <span id="card-pos" class="text-xs font-mono text-ink-500 bg-ink-700 px-2 py-0.5 rounded-full"></span>
           </div>
-          <div class="absolute top-4 left-4 text-xs text-ink-600 font-mono" id="card-index-front">1 / 20</div>
-          <p class="font-display text-5xl text-ink-50 tracking-tight px-8 text-center" id="card-word-front">—</p>
-          <p class="text-xs text-ink-500 mt-4">クリックしてめくる</p>
+          <div class="absolute top-3 left-3 text-xs text-ink-600 font-mono" id="card-index-front">1 / 20</div>
+          <p class="font-display text-ink-50 tracking-tight px-6 text-center" style="font-size:clamp(1.8rem,9vw,3rem);" id="card-word-front">—</p>
+          <p class="text-xs text-ink-500 mt-3">タップしてめくる</p>
         </div>
-        <!-- Back -->
         <div class="card-face card-back bg-ink-700 border border-jade-500/30" style="box-shadow:0 20px 60px rgba(0,0,0,0.5);">
-          <p class="font-display text-4xl text-jade-400 px-8 text-center" id="card-meaning-back">—</p>
+          <p class="font-display text-jade-400 px-6 text-center" style="font-size:clamp(1.4rem,6vw,2.25rem);" id="card-meaning-back">—</p>
           <p class="text-sm text-ink-400 mt-3 font-mono" id="card-word-back-sub">—</p>
         </div>
       </div>
     </div>
-
-    <!-- Swipe hint -->
-    <p class="text-center text-xs text-ink-600 mt-3">← キー / スワイプで「まだ」　→ キー / スワイプで「覚えた」</p>
-
-    <!-- Action buttons -->
-    <div id="card-actions-pre" class="flex gap-3 mt-5 justify-center">
-      <button type="button" id="btn-flip-card" class="px-8 py-3 rounded-2xl bg-ink-700 hover:bg-ink-600 border border-ink-600 text-ink-100 font-medium transition-all hover:scale-105">
-        めくる
-      </button>
+    <p class="text-center text-xs text-ink-600 mt-2">← スワイプ「まだ」　→ スワイプ「覚えた」</p>
+    <div id="card-actions-pre" class="flex gap-3 mt-4 justify-center">
+      <button type="button" id="btn-flip-card" class="px-10 py-3.5 rounded-2xl bg-ink-700 hover:bg-ink-600 border border-ink-600 text-ink-100 font-medium transition-all active:scale-95">めくる</button>
     </div>
-    <div id="card-actions-post" class="hidden flex gap-3 mt-5 justify-center">
-      <button type="button" id="btn-dont-know" class="flex-1 max-w-[160px] py-3 rounded-2xl bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/40 text-rose-400 font-semibold transition-all hover:scale-105">
-        ✕ まだ
-      </button>
-      <button type="button" id="btn-know" class="flex-1 max-w-[160px] py-3 rounded-2xl bg-jade-500/15 hover:bg-jade-500/25 border border-jade-500/40 text-jade-400 font-semibold transition-all hover:scale-105">
-        ✓ 覚えた
-      </button>
+    <div id="card-actions-post" class="hidden flex gap-4 mt-4 justify-center">
+      <button type="button" id="btn-dont-know" class="flex-1 max-w-[160px] py-3.5 rounded-2xl bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/40 text-rose-400 font-semibold transition-all active:scale-95 text-base">✕ まだ</button>
+      <button type="button" id="btn-know" class="flex-1 max-w-[160px] py-3.5 rounded-2xl bg-jade-500/15 hover:bg-jade-500/25 border border-jade-500/40 text-jade-400 font-semibold transition-all active:scale-95 text-base">✓ 覚えた</button>
     </div>
-
-    <!-- Card session result -->
     <div id="card-session-end" class="hidden mt-8 animate-pop-in text-center">
       <p class="font-display text-2xl text-ink-100 mb-2">セッション完了！</p>
-      <p class="text-ink-400 text-sm mb-6">
-        覚えた: <span id="card-result-know" class="text-jade-400 font-bold">0</span> 語　／　
-        まだ:   <span id="card-result-dunno" class="text-rose-400 font-bold">0</span> 語
-      </p>
-      <div class="session-end-actions flex gap-3 justify-center mt-1">
-      <button type="button" id="btn-card-retry-dunno" class="px-6 py-2.5 rounded-xl bg-ember-500/15 border border-ember-500/40 text-ember-400 font-medium transition-colors hover:bg-ember-500/25">
-        まだ語を再挑戦
-      </button>
-      <button type="button" id="btn-card-finish" class="px-6 py-2.5 rounded-xl bg-jade-500/15 border border-jade-500/40 text-jade-400 font-medium transition-colors hover:bg-jade-500/25">
-        ユニットへ戻る
-      </button>
+      <p class="text-ink-400 text-sm mb-5">覚えた: <span id="card-result-know" class="text-jade-400 font-bold">0</span> 語　／　まだ: <span id="card-result-dunno" class="text-rose-400 font-bold">0</span> 語</p>
+      <div class="flex flex-col sm:flex-row gap-3 justify-center">
+        <button type="button" id="btn-card-retry-dunno" class="px-6 py-2.5 rounded-xl bg-ember-500/15 border border-ember-500/40 text-ember-400 font-medium transition-colors hover:bg-ember-500/25">まだ語を再挑戦</button>
+        <button type="button" id="btn-card-finish" class="px-6 py-2.5 rounded-xl bg-jade-500/15 border border-jade-500/40 text-jade-400 font-medium transition-colors hover:bg-jade-500/25">ユニットへ戻る</button>
       </div>
     </div>
   </div>
 
-  <!-- ─── TAB: CHOICE (4択) ─── -->
+  <!-- ─── TAB: CHOICE (4択 英→日) ─── -->
   <div id="tab-choice" class="tab-panel hidden">
-    <!-- Question -->
-    <div class="rounded-2xl border border-ink-700/60 bg-ink-800/80 p-8 mb-5 text-center min-h-[140px] flex flex-col items-center justify-center"
-         style="box-shadow:0 10px 30px rgba(0,0,0,0.3);">
+    <div class="rounded-2xl border border-ink-700/60 bg-ink-800/80 p-6 mb-4 text-center min-h-[120px] flex flex-col items-center justify-center" style="box-shadow:0 10px 30px rgba(0,0,0,0.3);">
       <p class="text-xs text-ink-500 mb-2 font-mono uppercase tracking-widest">次の単語の意味は？</p>
-      <p class="font-display text-4xl text-ink-50 tracking-tight" id="choice-word">—</p>
+      <p class="font-display text-3xl sm:text-4xl text-ink-50 tracking-tight" id="choice-word">—</p>
     </div>
-
-    <!-- Feedback overlay -->
     <div id="choice-feedback" class="hidden fixed inset-0 z-40 flex items-center justify-center pointer-events-none">
       <div id="choice-feedback-icon" class="text-8xl animate-pop-in"></div>
     </div>
-
-    <!-- Options -->
-    <div id="choice-options" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-      <!-- Populated by JS -->
-    </div>
-
-    <!-- Result / next button -->
-    <div id="choice-result" class="hidden mt-5 text-center animate-slide-up">
+    <div id="choice-options" class="grid grid-cols-1 gap-2.5"></div>
+    <div id="choice-result" class="hidden mt-4 text-center animate-slide-up">
       <p id="choice-result-msg" class="text-sm text-ink-400 mb-3"></p>
-      <button type="button" id="btn-choice-next" class="px-8 py-2.5 rounded-xl bg-jade-500/15 border border-jade-500/40 text-jade-400 font-medium transition-colors hover:bg-jade-500/25">
-        次へ →
-      </button>
+      <button type="button" id="btn-choice-next" class="px-8 py-2.5 rounded-xl bg-jade-500/15 border border-jade-500/40 text-jade-400 font-medium transition-colors hover:bg-jade-500/25">次へ →</button>
     </div>
-
-    <!-- Session end -->
     <div id="choice-session-end" class="hidden mt-8 animate-pop-in text-center">
-      <div class="w-20 h-20 rounded-full bg-jade-500/20 flex items-center justify-center mx-auto mb-4">
-        <span class="text-4xl">🎉</span>
-      </div>
+      <div class="w-20 h-20 rounded-full bg-jade-500/20 flex items-center justify-center mx-auto mb-4"><span class="text-4xl">🎉</span></div>
       <p class="font-display text-2xl text-ink-100 mb-2">テスト完了！</p>
-      <p class="text-ink-400 text-sm mb-6">
-        正解: <span id="choice-result-correct" class="text-jade-400 font-bold">0</span> 語　／　
-        不正解: <span id="choice-result-wrong" class="text-rose-400 font-bold">0</span> 語
-      </p>
-      <div class="session-end-actions flex gap-3 justify-center mt-1">
-      <button type="button" id="btn-choice-retry-wrong" class="px-6 py-2.5 rounded-xl bg-ember-500/15 border border-ember-500/40 text-ember-400 font-medium transition-colors hover:bg-ember-500/25 hidden">
-        間違えた語を再挑戦
-      </button>
-      <button type="button" id="btn-choice-finish" class="px-6 py-2.5 rounded-xl bg-jade-500/15 border border-jade-500/40 text-jade-400 font-medium transition-colors hover:bg-jade-500/25">
-        ユニットへ戻る
-      </button>
+      <p class="text-ink-400 text-sm mb-5">正解: <span id="choice-result-correct" class="text-jade-400 font-bold">0</span> 語　／　不正解: <span id="choice-result-wrong" class="text-rose-400 font-bold">0</span> 語</p>
+      <div class="flex flex-col sm:flex-row gap-3 justify-center">
+        <button type="button" id="btn-choice-retry-wrong" class="px-6 py-2.5 rounded-xl bg-ember-500/15 border border-ember-500/40 text-ember-400 font-medium transition-colors hover:bg-ember-500/25 hidden">間違えた語を再挑戦</button>
+        <button type="button" id="btn-choice-finish" class="px-6 py-2.5 rounded-xl bg-jade-500/15 border border-jade-500/40 text-jade-400 font-medium transition-colors hover:bg-jade-500/25">ユニットへ戻る</button>
       </div>
     </div>
   </div>
 
   <!-- ─── TAB: SPELL (記述) ─── -->
   <div id="tab-spell" class="tab-panel hidden">
-    <!-- Question -->
-    <div class="rounded-2xl border border-ink-700/60 bg-ink-800/80 p-8 mb-5 text-center min-h-[140px] flex flex-col items-center justify-center"
-         style="box-shadow:0 10px 30px rgba(0,0,0,0.3);">
+    <div class="rounded-2xl border border-ink-700/60 bg-ink-800/80 p-6 mb-4 text-center min-h-[120px] flex flex-col items-center justify-center" style="box-shadow:0 10px 30px rgba(0,0,0,0.3);">
       <p class="text-xs text-ink-500 mb-2 font-mono uppercase tracking-widest">英単語をスペルしてください</p>
-      <p class="font-display text-4xl text-ink-50 tracking-tight" id="spell-meaning">—</p>
+      <p class="font-display text-3xl sm:text-4xl text-ink-50 tracking-tight" id="spell-meaning">—</p>
     </div>
-
-    <!-- Input -->
-    <div class="relative mb-4">
-      <input
-        type="text"
-        id="spell-input"
-        autocomplete="off"
-        autocapitalize="off"
-        spellcheck="false"
+    <div class="relative mb-3">
+      <input type="text" id="spell-input" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" inputmode="latin"
         placeholder="ここに英単語を入力..."
-        class="spell-input w-full bg-ink-800 border border-ink-600 rounded-2xl px-5 py-4 text-ink-100 font-mono text-lg placeholder-ink-600 transition-colors focus:border-jade-500"
-      />
+        class="spell-input w-full bg-ink-800 border border-ink-600 rounded-2xl px-5 py-4 text-ink-100 font-mono placeholder-ink-600 transition-colors focus:border-jade-500" />
     </div>
-
-    <!-- Feedback -->
-    <div id="spell-feedback" class="hidden mb-4 rounded-2xl p-5 text-center animate-pop-in">
+    <div id="spell-feedback" class="hidden mb-3 rounded-2xl p-4 text-center animate-pop-in">
       <p id="spell-feedback-msg" class="text-sm font-medium mb-2"></p>
-      <p id="spell-correct-answer" class="font-mono text-3xl font-bold"></p>
+      <p id="spell-correct-answer" class="font-mono text-2xl sm:text-3xl font-bold"></p>
     </div>
-
-    <!-- Buttons -->
-    <div class="spell-action-bar flex gap-3">
-      <button type="button" id="btn-spell-submit" class="flex-1 py-3.5 rounded-2xl bg-jade-500/20 hover:bg-jade-500/30 border border-jade-500/40 text-jade-300 font-semibold transition-all">
-        答え合わせ
-      </button>
-      <button type="button" id="btn-spell-next" class="hidden flex-1 py-3.5 rounded-2xl bg-ink-700 hover:bg-ink-600 border border-ink-600 text-ink-200 font-medium transition-all">
-        次へ →
-      </button>
+    <div class="flex gap-3 mt-1">
+      <button type="button" id="btn-spell-submit" class="flex-1 py-3.5 rounded-2xl bg-jade-500/20 hover:bg-jade-500/30 border border-jade-500/40 text-jade-300 font-semibold transition-all active:scale-95">答え合わせ</button>
+      <button type="button" id="btn-spell-next" class="hidden flex-1 py-3.5 rounded-2xl bg-ink-700 hover:bg-ink-600 border border-ink-600 text-ink-200 font-medium transition-all active:scale-95">次へ →</button>
     </div>
-
-    <!-- Session end -->
     <div id="spell-session-end" class="hidden mt-8 animate-pop-in text-center">
-      <div class="w-20 h-20 rounded-full bg-jade-500/20 flex items-center justify-center mx-auto mb-4">
-        <span class="text-4xl">✨</span>
-      </div>
+      <div class="w-20 h-20 rounded-full bg-jade-500/20 flex items-center justify-center mx-auto mb-4"><span class="text-4xl">✨</span></div>
       <p class="font-display text-2xl text-ink-100 mb-2">テスト完了！</p>
-      <p class="text-ink-400 text-sm mb-6">
-        正解: <span id="spell-result-correct" class="text-jade-400 font-bold">0</span> 語　／　
-        不正解: <span id="spell-result-wrong" class="text-rose-400 font-bold">0</span> 語
-      </p>
-      <div class="session-end-actions flex gap-3 justify-center mt-1">
-      <button type="button" id="btn-spell-retry-wrong" class="px-6 py-2.5 rounded-xl bg-ember-500/15 border border-ember-500/40 text-ember-400 font-medium transition-colors hover:bg-ember-500/25 hidden">
-        間違えた語を再挑戦
-      </button>
-      <button type="button" id="btn-spell-finish" class="px-6 py-2.5 rounded-xl bg-jade-500/15 border border-jade-500/40 text-jade-400 font-medium transition-colors hover:bg-jade-500/25">
-        ユニットへ戻る
-      </button>
+      <p class="text-ink-400 text-sm mb-5">正解: <span id="spell-result-correct" class="text-jade-400 font-bold">0</span> 語　／　不正解: <span id="spell-result-wrong" class="text-rose-400 font-bold">0</span> 語</p>
+      <div class="flex flex-col sm:flex-row gap-3 justify-center">
+        <button type="button" id="btn-spell-retry-wrong" class="px-6 py-2.5 rounded-xl bg-ember-500/15 border border-ember-500/40 text-ember-400 font-medium transition-colors hover:bg-ember-500/25 hidden">間違えた語を再挑戦</button>
+        <button type="button" id="btn-spell-finish" class="px-6 py-2.5 rounded-xl bg-jade-500/15 border border-jade-500/40 text-jade-400 font-medium transition-colors hover:bg-jade-500/25">ユニットへ戻る</button>
       </div>
     </div>
   </div>
-</div>
+
+  <!-- ─── TAB: JA→EN (日本語→英語 4択) ─── -->
+  <div id="tab-ja2en" class="tab-panel hidden">
+    <div class="rounded-2xl border border-violet-500/30 bg-ink-800/80 p-6 mb-4 text-center min-h-[120px] flex flex-col items-center justify-center" style="box-shadow:0 10px 30px rgba(0,0,0,0.3); background:linear-gradient(135deg,rgba(139,92,246,0.08),rgba(29,30,46,0.9));">
+      <p class="text-xs text-violet-400/70 mb-2 font-mono uppercase tracking-widest">この意味の英単語は？</p>
+      <p class="font-display text-3xl sm:text-4xl text-ink-50 tracking-tight" id="ja2en-meaning">—</p>
+    </div>
+    <div id="ja2en-feedback" class="hidden fixed inset-0 z-40 flex items-center justify-center pointer-events-none">
+      <div id="ja2en-feedback-icon" class="text-8xl animate-pop-in"></div>
+    </div>
+    <div id="ja2en-options" class="grid grid-cols-1 gap-2.5"></div>
+    <div id="ja2en-result" class="hidden mt-4 text-center animate-slide-up">
+      <p id="ja2en-result-msg" class="text-sm text-ink-400 mb-3"></p>
+      <button type="button" id="btn-ja2en-next" class="px-8 py-2.5 rounded-xl bg-violet-500/15 border border-violet-500/40 text-violet-400 font-medium transition-colors hover:bg-violet-500/25">次へ →</button>
+    </div>
+    <div id="ja2en-session-end" class="hidden mt-8 animate-pop-in text-center">
+      <div class="w-20 h-20 rounded-full bg-violet-500/20 flex items-center justify-center mx-auto mb-4"><span class="text-4xl">🔄</span></div>
+      <p class="font-display text-2xl text-ink-100 mb-2">テスト完了！</p>
+      <p class="text-ink-400 text-sm mb-5">正解: <span id="ja2en-result-correct" class="text-violet-400 font-bold">0</span> 語　／　不正解: <span id="ja2en-result-wrong" class="text-rose-400 font-bold">0</span> 語</p>
+      <div class="flex flex-col sm:flex-row gap-3 justify-center">
+        <button type="button" id="btn-ja2en-retry-wrong" class="px-6 py-2.5 rounded-xl bg-ember-500/15 border border-ember-500/40 text-ember-400 font-medium transition-colors hover:bg-ember-500/25 hidden">間違えた語を再挑戦</button>
+        <button type="button" id="btn-ja2en-finish" class="px-6 py-2.5 rounded-xl bg-violet-500/15 border border-violet-500/40 text-violet-400 font-medium transition-colors hover:bg-violet-500/25">ユニットへ戻る</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─── TAB: LISTEN (リスニング) ─── -->
+  <div id="tab-listen" class="tab-panel hidden">
+    <div class="rounded-2xl border border-sky-500/30 bg-ink-800/80 p-6 mb-4 text-center min-h-[160px] flex flex-col items-center justify-center gap-4" style="box-shadow:0 10px 30px rgba(0,0,0,0.3); background:linear-gradient(135deg,rgba(14,165,233,0.08),rgba(29,30,46,0.9));">
+      <p class="text-xs text-sky-400/70 font-mono uppercase tracking-widest">読み上げを聞いて意味を選んでください</p>
+      <button type="button" id="btn-listen-speak" class="w-20 h-20 rounded-full bg-sky-500/20 border-2 border-sky-500/40 flex items-center justify-center text-4xl transition-all hover:bg-sky-500/30 active:scale-95">
+        🔊
+      </button>
+      <p class="text-xs text-ink-500" id="listen-hint">ボタンをタップして再生</p>
+    </div>
+    <div id="listen-feedback" class="hidden fixed inset-0 z-40 flex items-center justify-center pointer-events-none">
+      <div id="listen-feedback-icon" class="text-8xl animate-pop-in"></div>
+    </div>
+    <div id="listen-options" class="grid grid-cols-1 gap-2.5"></div>
+    <div id="listen-result" class="hidden mt-4 text-center animate-slide-up">
+      <p id="listen-result-msg" class="text-sm text-ink-400 mb-1"></p>
+      <p id="listen-correct-word" class="font-mono text-xl text-sky-300 font-bold mb-3"></p>
+      <button type="button" id="btn-listen-next" class="px-8 py-2.5 rounded-xl bg-sky-500/15 border border-sky-500/40 text-sky-400 font-medium transition-colors hover:bg-sky-500/25">次へ →</button>
+    </div>
+    <div id="listen-session-end" class="hidden mt-8 animate-pop-in text-center">
+      <div class="w-20 h-20 rounded-full bg-sky-500/20 flex items-center justify-center mx-auto mb-4"><span class="text-4xl">👂</span></div>
+      <p class="font-display text-2xl text-ink-100 mb-2">テスト完了！</p>
+      <p class="text-ink-400 text-sm mb-5">正解: <span id="listen-result-correct" class="text-sky-400 font-bold">0</span> 語　／　不正解: <span id="listen-result-wrong" class="text-rose-400 font-bold">0</span> 語</p>
+      <div class="flex flex-col sm:flex-row gap-3 justify-center">
+        <button type="button" id="btn-listen-retry-wrong" class="px-6 py-2.5 rounded-xl bg-ember-500/15 border border-ember-500/40 text-ember-400 font-medium transition-colors hover:bg-ember-500/25 hidden">間違えた語を再挑戦</button>
+        <button type="button" id="btn-listen-finish" class="px-6 py-2.5 rounded-xl bg-sky-500/15 border border-sky-500/40 text-sky-400 font-medium transition-colors hover:bg-sky-500/25">ユニットへ戻る</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─── TAB: TIMED (時間制限クイズ) ─── -->
+  <div id="tab-timed" class="tab-panel hidden">
+    <!-- Timer bar -->
+    <div class="mb-4">
+      <div class="flex items-center justify-between mb-1.5">
+        <span class="text-xs text-gold-400 font-mono font-bold" id="timed-timer-label">10.0s</span>
+        <span class="text-xs text-ink-500" id="timed-streak-label">連続正解: 0</span>
+      </div>
+      <div class="w-full h-2 rounded-full bg-ink-700">
+        <div id="timed-timer-bar" class="timer-bar-fill h-full rounded-full bg-gold-400" style="width:100%"></div>
+      </div>
+    </div>
+    <div class="rounded-2xl border border-gold-400/30 bg-ink-800/80 p-6 mb-4 text-center min-h-[120px] flex flex-col items-center justify-center" style="box-shadow:0 10px 30px rgba(0,0,0,0.3); background:linear-gradient(135deg,rgba(251,191,36,0.07),rgba(29,30,46,0.9));">
+      <p class="text-xs text-gold-400/70 mb-2 font-mono uppercase tracking-widest">次の単語の意味は？</p>
+      <p class="font-display text-3xl sm:text-4xl text-ink-50 tracking-tight" id="timed-word">—</p>
+    </div>
+    <div id="timed-feedback" class="hidden fixed inset-0 z-40 flex items-center justify-center pointer-events-none">
+      <div id="timed-feedback-icon" class="text-8xl animate-pop-in"></div>
+    </div>
+    <div id="timed-options" class="grid grid-cols-1 gap-2.5"></div>
+    <div id="timed-session-end" class="hidden mt-8 animate-pop-in text-center">
+      <div class="w-20 h-20 rounded-full bg-gold-400/20 flex items-center justify-center mx-auto mb-4"><span class="text-4xl" id="timed-end-icon">⏱</span></div>
+      <p class="font-display text-2xl text-ink-100 mb-2">タイムアタック終了！</p>
+      <p class="text-ink-400 text-sm mb-1">正解: <span id="timed-result-correct" class="text-gold-400 font-bold">0</span> 語　／　不正解: <span id="timed-result-wrong" class="text-rose-400 font-bold">0</span> 語</p>
+      <p class="text-ink-500 text-xs mb-5">最大連続正解: <span id="timed-result-streak" class="text-gold-300 font-bold">0</span></p>
+      <div class="flex flex-col sm:flex-row gap-3 justify-center">
+        <button type="button" id="btn-timed-retry" class="px-6 py-2.5 rounded-xl bg-gold-400/15 border border-gold-400/40 text-gold-300 font-medium transition-colors hover:bg-gold-400/25">もう一度</button>
+        <button type="button" id="btn-timed-finish" class="px-6 py-2.5 rounded-xl bg-jade-500/15 border border-jade-500/40 text-jade-400 font-medium transition-colors hover:bg-jade-500/25">ユニットへ戻る</button>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /screen-study -->
 
 <!-- ═══════════════════════════════════════════════════════════ -->
 <!-- LOGIN MODAL                                                  -->
 <!-- ═══════════════════════════════════════════════════════════ -->
-<div id="modal-login" class="hidden fixed inset-0 z-50 flex items-center justify-center modal-backdrop">
-  <div class="w-full max-w-sm mx-4 rounded-3xl border border-ink-700/60 bg-ink-900 p-8 animate-pop-in">
+<div id="modal-login" class="hidden fixed inset-0 z-50 flex items-end sm:items-center justify-center modal-backdrop">
+  <div class="w-full sm:max-w-sm sm:mx-4 rounded-t-3xl sm:rounded-3xl border border-ink-700/60 bg-ink-900 p-6 sm:p-8 animate-slide-up sm:animate-pop-in">
+    <div class="w-10 h-1 bg-ink-600 rounded-full mx-auto mb-4 sm:hidden"></div>
     <h2 class="font-display text-2xl text-ink-50 mb-2">サインイン</h2>
     <p class="text-ink-400 text-sm mb-5">アカウントで進捗を同期します</p>
-
-    <!-- タブ -->
-    <div class="flex rounded-xl bg-ink-800 p-1 mb-6 gap-1">
-      <button type="button" id="tab-google" onclick="switchLoginTab('google')"
-        class="flex-1 py-2 rounded-lg text-sm font-medium transition-all bg-ink-600 text-ink-100">
-        Google
-      </button>
-      <button type="button" id="tab-email" onclick="switchLoginTab('email')"
-        class="flex-1 py-2 rounded-lg text-sm font-medium transition-all text-ink-400 hover:text-ink-200">
-        メール
-      </button>
+    <div class="flex rounded-xl bg-ink-800 p-1 mb-5 gap-1">
+      <button type="button" id="tab-google" onclick="switchLoginTab('google')" class="flex-1 py-2.5 rounded-lg text-sm font-medium transition-all bg-ink-600 text-ink-100">Google</button>
+      <button type="button" id="tab-email" onclick="switchLoginTab('email')" class="flex-1 py-2.5 rounded-lg text-sm font-medium transition-all text-ink-400">メール</button>
     </div>
-
-    <!-- Google パネル -->
     <div id="panel-google">
-      <button type="button" id="btn-google-signin"
-        class="w-full flex items-center justify-center gap-3 py-3 rounded-2xl bg-ink-700 hover:bg-ink-600 border border-ink-600 text-ink-100 font-medium transition-all hover:scale-[1.02]">
+      <button type="button" id="btn-google-signin" class="w-full flex items-center justify-center gap-3 py-3.5 rounded-2xl bg-ink-700 hover:bg-ink-600 border border-ink-600 text-ink-100 font-medium transition-all active:scale-[0.98]">
         <svg class="w-5 h-5" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
         Googleでサインイン
       </button>
     </div>
-
-    <!-- メール/パスワード パネル -->
     <div id="panel-email" class="hidden space-y-3">
-      <input id="input-email" type="email" placeholder="メールアドレス"
-        class="w-full px-4 py-3 rounded-2xl bg-ink-800 border border-ink-600 text-ink-100 placeholder-ink-500 text-sm focus:outline-none focus:border-ink-400 transition-colors" />
-      <input id="input-password" type="password" placeholder="パスワード（6文字以上）"
-        class="w-full px-4 py-3 rounded-2xl bg-ink-800 border border-ink-600 text-ink-100 placeholder-ink-500 text-sm focus:outline-none focus:border-ink-400 transition-colors" />
+      <input id="input-email" type="email" inputmode="email" placeholder="メールアドレス" class="w-full px-4 py-3.5 rounded-2xl bg-ink-800 border border-ink-600 text-ink-100 placeholder-ink-500 text-base focus:outline-none focus:border-ink-400 transition-colors" />
+      <input id="input-password" type="password" placeholder="パスワード（6文字以上）" class="w-full px-4 py-3.5 rounded-2xl bg-ink-800 border border-ink-600 text-ink-100 placeholder-ink-500 text-base focus:outline-none focus:border-ink-400 transition-colors" />
       <div id="email-auth-error" class="text-red-400 text-xs hidden"></div>
-      <button type="button" id="btn-email-signin"
-        class="w-full py-3 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white font-medium transition-all hover:scale-[1.02]">
-        ログイン
-      </button>
-      <button type="button" id="btn-email-signup"
-        class="w-full py-2 rounded-2xl border border-ink-600 text-ink-300 hover:text-ink-100 text-sm transition-all hover:bg-ink-700">
-        新規登録
-      </button>
+      <button type="button" id="btn-email-signin" class="w-full py-3.5 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white font-medium transition-all active:scale-[0.98]">ログイン</button>
+      <button type="button" id="btn-email-signup" class="w-full py-3 rounded-2xl border border-ink-600 text-ink-300 hover:text-ink-100 text-sm transition-all hover:bg-ink-700">新規登録</button>
     </div>
-
     <p class="text-center text-xs text-ink-600 mt-4">サインインしなくてもローカルで学習できます</p>
-    <button type="button" id="btn-close-modal" class="w-full mt-3 py-2 rounded-xl text-ink-500 hover:text-ink-300 text-sm transition-colors">
-      キャンセル
-    </button>
+    <button type="button" id="btn-close-modal" class="w-full mt-3 py-3 rounded-xl text-ink-500 hover:text-ink-300 text-sm transition-colors">キャンセル</button>
   </div>
 </div>
 
-<!-- ═══════════════════════════════════════════════════════════ -->
-<!-- TOAST                                                        -->
-<!-- ═══════════════════════════════════════════════════════════ -->
-<div id="toast" class="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 px-5 py-3 rounded-2xl text-sm font-medium border shadow-2xl pointer-events-none">
-</div>
+<!-- TOAST -->
+<div id="toast" class="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 px-5 py-3 rounded-2xl text-sm font-medium border shadow-2xl pointer-events-none"></div>
 
-<!-- ═══════════════════════════════════════════════════════════ -->
-<!-- Firebase SDK (Modular v10+)                                  -->
-<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- Firebase SDK -->
 <script type="module" src="app.js"></script>
+
 <script>
 function switchLoginTab(tab) {
   const isGoogle = tab === 'google';
   document.getElementById('panel-google').classList.toggle('hidden', !isGoogle);
   document.getElementById('panel-email').classList.toggle('hidden', isGoogle);
-  document.getElementById('tab-google').className =
-    'flex-1 py-2 rounded-lg text-sm font-medium transition-all ' +
-    (isGoogle ? 'bg-ink-600 text-ink-100' : 'text-ink-400 hover:text-ink-200');
-  document.getElementById('tab-email').className =
-    'flex-1 py-2 rounded-lg text-sm font-medium transition-all ' +
-    (!isGoogle ? 'bg-ink-600 text-ink-100' : 'text-ink-400 hover:text-ink-200');
+  document.getElementById('tab-google').className = 'flex-1 py-2.5 rounded-lg text-sm font-medium transition-all ' + (isGoogle ? 'bg-ink-600 text-ink-100' : 'text-ink-400 hover:text-ink-200');
+  document.getElementById('tab-email').className = 'flex-1 py-2.5 rounded-lg text-sm font-medium transition-all ' + (!isGoogle ? 'bg-ink-600 text-ink-100' : 'text-ink-400 hover:text-ink-200');
   document.getElementById('email-auth-error').classList.add('hidden');
 }
 </script>
