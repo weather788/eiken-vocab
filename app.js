@@ -1099,17 +1099,17 @@ function renderListen() {
   document.getElementById("listen-result").classList.add("hidden");
   document.getElementById("listen-hint").textContent = "ボタンをタップして再生";
 
-  // 選択肢は英単語（単語を当てる）
+  // 選択肢は日本語の意味
   const pool    = allWords.filter(x => x.id !== w.id);
-  const dummies = shuffle(pool).slice(0, 3).map(x => x.word);
-  const options = shuffle([w.word, ...dummies]);
+  const dummies = shuffle(pool).slice(0, 3).map(x => x.meaning);
+  const options = shuffle([w.meaning, ...dummies]);
 
   document.getElementById("listen-options").innerHTML = options.map((opt, i) => {
-    const correct = opt === w.word;
-    return `<button class="choice-btn w-full text-left px-5 py-3.5 rounded-2xl bg-ink-800/80 border border-ink-700/60 text-ink-200 font-mono font-medium"
+    const correct = opt === w.meaning;
+    return `<button class="choice-btn w-full text-left px-5 py-3.5 rounded-2xl bg-ink-800/80 border border-ink-700/60 text-ink-200 font-medium"
             data-correct="${correct}"
             data-wordid="${w.id}">
-      <span class="text-ink-500 mr-2">${String.fromCharCode(65+i)}.</span>${opt}
+      <span class="text-ink-500 font-mono mr-2">${String.fromCharCode(65+i)}.</span>${opt}
     </button>`;
   }).join("");
 
