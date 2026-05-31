@@ -501,7 +501,7 @@
     { "id": 497, "word": "likeness", "part_of_speech": "noun", "meaning": "似ていること", "is_learned": false, "review_count": 0 },
     { "id": 498, "word": "idealistic", "part_of_speech": "adjective", "meaning": "理想主義の", "is_learned": false, "review_count": 0 },
     { "id": 499, "word": "collaborate", "part_of_speech": "verb", "meaning": "共同して働く", "is_learned": false, "review_count": 0 },
-    { "id": 500, "word": "erode", "part_of_speech": "verb", "meaning": "侵食する", "is_learned": false, "review_count": 0 }
+    { "id": 500, "word": "erode", "part_of_speech": "verb", "meaning": "侵食する", "is_learned": false, "review_count": 0 },
   { "id": 500, "word": "amicable", "part_of_speech": "adjective", "meaning": "友好的な", "is_learned": false, "review_count": 0 },
   { "id": 501, "word": "odor", "part_of_speech": "noun", "meaning": "におい", "is_learned": false, "review_count": 0 },
   { "id": 502, "word": "reinforce", "part_of_speech": "verb", "meaning": "を強化する", "is_learned": false, "review_count": 0 },
@@ -622,7 +622,7 @@
   { "id": 617, "word": "upside", "part_of_speech": "noun", "meaning": "良い面", "is_learned": false, "review_count": 0 },
   { "id": 618, "word": "intricate", "part_of_speech": "adjective", "meaning": "複雑な", "is_learned": false, "review_count": 0 },
   { "id": 619, "word": "endure", "part_of_speech": "verb", "meaning": "耐える", "is_learned": false, "review_count": 0 },
-  { "id": 620, "word": "mobilize", "part_of_speech": "verb", "meaning": を結集する、を動員する", "is_learned": false, "review_count": 0 },
+  { "id": 620, "word": "mobilize", "part_of_speech": "verb", "meaning": "を結集する、を動員する", "is_learned": false, "review_count": 0 },
   { "id": 621, "word": "compatible", "part_of_speech": "adjective", "meaning": "適合する、相性がいい", "is_learned": false, "review_count": 0 },
   { "id": 622, "word": "flattery", "part_of_speech": "noun", "meaning": "お世辞、おべっか", "is_learned": false, "review_count": 0 },
   { "id": 623, "word": "concession", "part_of_speech": "noun", "meaning": "譲歩", "is_learned": false, "review_count": 0 },
@@ -863,7 +863,7 @@
   { "id": 858, "word": "trait", "part_of_speech": "noun", "meaning": "特徴", "is_learned": false, "review_count": 0 },
   { "id": 859, "word": "outsource", "part_of_speech": "verb", "meaning": "外部委託する", "is_learned": false, "review_count": 0 },
   { "id": 860, "word": "compound", "part_of_speech": "noun", "meaning": "化合物、複合体", "is_learned": false, "review_count": 0 },
-  { "id": 861, "word": "durable", "part_of_speech": "adjective", "meaning": "耐久性のある", "is_learned": false, "review_count": 0 }
+  { "id": 861, "word": "durable", "part_of_speech": "adjective", "meaning": "耐久性のある", "is_learned": false, "review_count": 0 },
   { "id": 862, "word": "degrade", "part_of_speech": "verb", "meaning": "の価値を下げる；を降格する", "is_learned": false, "review_count": 0 },
   { "id": 863, "word": "medieval", "part_of_speech": "adjective", "meaning": "中世の；時代遅れの", "is_learned": false, "review_count": 0 },
   { "id": 864, "word": "steep", "part_of_speech": "adjective", "meaning": "（傾斜が）急な；急激な；法外な", "is_learned": false, "review_count": 0 },
@@ -1364,7 +1364,7 @@
   { "id": 1359, "word": "eternity", "part_of_speech": "noun", "meaning": "永久,永遠", "is_learned": false, "review_count": 0 },
   { "id": 1360, "word": "abstract", "part_of_speech": "adjective", "meaning": "抽象的な", "is_learned": false, "review_count": 0 },
   { "id": 1361, "word": "pretense", "part_of_speech": "noun", "meaning": "ふり、見せかけ", "is_learned": false, "review_count": 0 },
-  { "id": 1362, "word": "admonish", "part_of_speech": "verb", "meaning": "注意する", "is_learned": false, "review_count": 0 }
+  { "id": 1362, "word": "admonish", "part_of_speech": "verb", "meaning": "注意する", "is_learned": false, "review_count": 0 },
   { "id": 1363, "word": "incriminate", "part_of_speech": "verb", "meaning": "に罪を負わせる、を告発する", "is_learned": false, "review_count": 0 },
   { "id": 1364, "word": "vicinity", "part_of_speech": "noun", "meaning": "近所", "is_learned": false, "review_count": 0 },
   { "id": 1365, "word": "enrage", "part_of_speech": "verb", "meaning": "激怒させる", "is_learned": false, "review_count": 0 },
