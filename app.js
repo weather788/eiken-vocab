@@ -1,12 +1,15 @@
 // ═══════════════════════════════════════════════════════════════
 // app.js — 英検準1級 単語マスター
 // Firebase v10+ Modular SDK  ／  匿名認証 + 効果音 + 拡張機能版
+// build: 20260531-1417
 // ═══════════════════════════════════════════════════════════════
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import {
   getAuth, GoogleAuthProvider, signInWithPopup, signInAnonymously,
   linkWithPopup, signOut, onAuthStateChanged,
+  createUserWithEmailAndPassword, signInWithEmailAndPassword,
+  EmailAuthProvider, linkWithCredential,
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 import {
   getFirestore, doc, setDoc, collection, getDocs,
@@ -329,7 +332,7 @@ function getReviewWords() {
 }
 
 // ─────────────────────────────────────────────────────────────
-// Firestore 進捗取得
+// Firestore 進捗取得 (ローカルとマージ：successCount が大きい方を採用)
 // ─────────────────────────────────────────────────────────────
 async function fetchFirestoreProgress(uid) {
   if (!firebaseReady) return;
@@ -337,19 +340,45 @@ async function fetchFirestoreProgress(uid) {
     const snap = await getDocs(collection(db, "users", uid, "progress"));
     snap.forEach(d => {
       const data = d.data();
-      progress[d.id] = {
+      const remote = {
         status:       data.status       ?? "unlearned",
         successCount: data.successCount ?? 0,
         lastReviewed: data.lastReviewed instanceof Timestamp
           ? data.lastReviewed.toDate().toISOString()
           : data.lastReviewed ?? null,
       };
+      const local = progress[d.id];
+      // ローカルの方が進んでいれば保持、そうでなければリモートを採用
+      if (!local || remote.successCount > local.successCount) {
+        progress[d.id] = remote;
+      }
     });
     saveLocalProgress();
     console.log("✅ Firestoreから進捗を同期しました");
   } catch (e) {
     console.warn("Firestore 進捗取得失敗:", e);
   }
+}
+
+// ローカルの全進捗を Firestore にアップロード
+// ─────────────────────────────────────────────────────────────
+async function uploadProgressToFirestore() {
+  if (!firebaseReady || !currentUser || currentUser.isAnonymous) return 0;
+  const entries = Object.entries(progress);
+  if (entries.length === 0) return 0;
+  let count = 0;
+  try {
+    await Promise.all(entries.map(([wordId, p]) =>
+      setDoc(
+        doc(db, "users", currentUser.uid, "progress", wordId),
+        { status: p.status, successCount: p.successCount, lastReviewed: p.lastReviewed ?? null },
+        { merge: true }
+      ).then(() => count++)
+    ));
+  } catch (e) {
+    console.warn("Firestore 一括アップロード失敗:", e);
+  }
+  return count;
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -373,7 +402,7 @@ function showToast(msg, type = "info") {
 }
 
 function showScreen(id) {
-  ["screen-home", "screen-study"].forEach(s =>
+  ["screen-home", "screen-study", "screen-wordlist"].forEach(s =>
     document.getElementById(s).classList.toggle("hidden", s !== id)
   );
   document.getElementById("btn-back-home").classList.toggle("hidden", id === "screen-home");
@@ -449,24 +478,89 @@ function renderHome() {
     const isEmpty = filterCount === 0;
 
     return `
-      <button class="unit-card rounded-2xl border ${done ? 'border-gold-400/40 bg-gold-400/5' : isEmpty ? 'border-ink-700/30 bg-ink-800/30 opacity-50' : 'border-ink-700/60 bg-ink-800/60'} p-4 text-left"
-              onclick="startUnit(${u})">
-        <div class="flex items-center justify-between mb-3">
-          <span class="font-display text-lg ${done ? 'text-gold-300' : 'text-ink-100'}">
-            ${done ? '✓ ' : ''}Unit ${u}
-          </span>
-          <span class="text-xs font-mono ${isEmpty ? 'text-ink-600' : currentFilterMode !== 'all' ? 'text-ember-400' : 'text-ink-500'}">${filterLabel}</span>
-        </div>
-        <div class="w-full h-1.5 rounded-full bg-ink-700 mb-2">
-          <div class="progress-fill h-full rounded-full ${done ? 'bg-gold-400' : 'bg-gradient-to-r from-jade-600 to-jade-400'}"
-               style="width:${pct}%"></div>
-        </div>
-        <div class="flex items-center justify-between">
-          <span class="text-xs text-ink-500">${mast}/${tot} 習得</span>
-          <span class="text-xs ${done ? 'text-gold-400' : 'text-jade-500'} font-mono">${pct}%</span>
-        </div>
-      </button>`;
+      <div class="rounded-2xl border ${done ? 'border-gold-400/40 bg-gold-400/5' : isEmpty ? 'border-ink-700/30 bg-ink-800/30' : 'border-ink-700/60 bg-ink-800/60'} overflow-hidden">
+        <button class="unit-card w-full p-4 text-left ${isEmpty ? 'opacity-50' : ''}"
+                onclick="startUnit(${u})">
+          <div class="flex items-center justify-between mb-3">
+            <span class="font-display text-lg ${done ? 'text-gold-300' : 'text-ink-100'}">
+              ${done ? '✓ ' : ''}Unit ${u}
+            </span>
+            <span class="text-xs font-mono ${isEmpty ? 'text-ink-600' : currentFilterMode !== 'all' ? 'text-ember-400' : 'text-ink-500'}">${filterLabel}</span>
+          </div>
+          <div class="w-full h-1.5 rounded-full bg-ink-700 mb-2">
+            <div class="progress-fill h-full rounded-full ${done ? 'bg-gold-400' : 'bg-gradient-to-r from-jade-600 to-jade-400'}"
+                 style="width:${pct}%"></div>
+          </div>
+          <div class="flex items-center justify-between">
+            <span class="text-xs text-ink-500">${mast}/${tot} 習得</span>
+            <span class="text-xs ${done ? 'text-gold-400' : 'text-jade-500'} font-mono">${pct}%</span>
+          </div>
+        </button>
+        <button class="w-full py-2 border-t border-ink-700/40 text-xs text-ink-400 hover:text-ink-200 hover:bg-ink-700/30 transition-colors"
+                onclick="openWordList(${u})">
+          単語一覧 →
+        </button>
+      </div>`;
   }).join("");
+}
+
+
+// ═══════════════════════════════════════════════════════════════
+// 単語一覧画面
+// ═══════════════════════════════════════════════════════════════
+let wordlistUnit = null;
+let wordlistFilter = "all";
+
+window.openWordList = function(unit) {
+  wordlistUnit = unit;
+  wordlistFilter = "all";
+  renderWordList();
+  showScreen("screen-wordlist");
+};
+
+function renderWordList() {
+  const words = wordsOfUnit(wordlistUnit);
+  const filtered = wordlistFilter === "all" ? words
+    : words.filter(w => getWordProgress(w.id).status === wordlistFilter);
+
+  const mastered  = words.filter(w => getWordProgress(w.id).status === "mastered").length;
+  const learning  = words.filter(w => getWordProgress(w.id).status === "learning").length;
+  const unlearned = words.length - mastered - learning;
+
+  document.getElementById("wordlist-title").textContent = `Unit ${wordlistUnit}`;
+  document.getElementById("wordlist-subtitle").textContent =
+    `習得済 ${mastered}  /  学習中 ${learning}  /  未習得 ${unlearned}`;
+
+  document.querySelectorAll(".wl-filter-btn").forEach(btn => {
+    const active = btn.dataset.filter === wordlistFilter;
+    btn.className = "wl-filter-btn px-2.5 py-1 rounded-lg text-xs font-medium transition-all " +
+      (active ? "bg-ink-600 text-ink-100" : "text-ink-400 hover:text-ink-200");
+  });
+
+  const STATUS = {
+    mastered: { label: "習得済",  cls: "bg-jade-500/20 text-jade-400 border-jade-500/30" },
+    learning: { label: "学習中",  cls: "bg-ember-500/20 text-ember-400 border-ember-500/30" },
+    unlearned:{ label: "未習得",  cls: "bg-ink-700/60 text-ink-500 border-ink-600/30" },
+  };
+
+  document.getElementById("wordlist-body").innerHTML = filtered.length === 0
+    ? `<p class="text-center text-ink-500 py-12 text-sm">該当する単語がありません</p>`
+    : filtered.map(w => {
+        const p  = getWordProgress(w.id);
+        const s  = STATUS[p.status] ?? STATUS.unlearned;
+        const sc = p.successCount ?? 0;
+        return `
+          <div class="flex items-center gap-3 px-4 py-3 rounded-2xl border border-ink-700/40 bg-ink-800/50">
+            <div class="flex-1 min-w-0">
+              <p class="text-ink-100 font-medium text-sm">${w.word}</p>
+              <p class="text-ink-400 text-xs mt-0.5">${w.meaning}</p>
+            </div>
+            <div class="flex items-center gap-2 flex-shrink-0">
+              <span class="text-xs text-ink-600 font-mono">${sc}/3</span>
+              <span class="px-2 py-0.5 rounded-full border text-xs font-medium ${s.cls}">${s.label}</span>
+            </div>
+          </div>`;
+      }).join("");
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -551,7 +645,10 @@ function switchTab(tab) {
   if (tab === "card")   initCardMode();
   if (tab === "choice") initChoiceMode();
   if (tab === "spell")  initSpellMode();
-  if (tab === "fill")   initFillMode();
+  if (tab === "ja2en")  initJa2EnMode();
+  if (tab === "listen") initListenMode();
+  if (tab === "timed")  initTimedMode();
+  if (tab !== "timed")  stopTimedTimer();
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -793,10 +890,9 @@ function endSpellSession() {
 // テスト進捗バー
 // ─────────────────────────────────────────────────────────────
 function updateTestProgress(mode) {
-  const [current, total, correct] =
-    mode === "choice" ? [choiceIdx, choiceWords.length, choiceCorrect] :
-    mode === "fill"   ? [fillIdx,   fillWords.length,   fillCorrect]   :
-                        [spellIdx,  spellWords.length,  spellCorrect];
+  const [current, total, correct] = mode === "choice"
+    ? [choiceIdx, choiceWords.length, choiceCorrect]
+    : [spellIdx,  spellWords.length,  spellCorrect];
   const pct = total ? (current / total) * 100 : 0;
   document.getElementById("progress-fill").style.width  = `${pct}%`;
   document.getElementById("progress-label").textContent = `${current} / ${total}`;
@@ -844,6 +940,364 @@ document.addEventListener("keydown", e => {
 });
 
 // ═══════════════════════════════════════════════════════════════
+// ── 日本語→英語 4択モード (ja2en) ────────────────────────────
+// ═══════════════════════════════════════════════════════════════
+let ja2enIdx = 0, ja2enWords = [], ja2enCorrect = 0, ja2enWrong = [], ja2enAnswered = false;
+
+function initJa2EnMode(words) {
+  ja2enCorrect  = 0;
+  ja2enWrong    = [];
+  ja2enIdx      = 0;
+  ja2enAnswered = false;
+  ja2enWords    = shuffle(words ?? [...sessionWords]);
+  document.getElementById("ja2en-session-end").classList.add("hidden");
+  document.getElementById("ja2en-result").classList.add("hidden");
+  updateTestProgress2("ja2en");
+  renderJa2En();
+}
+
+function renderJa2En() {
+  if (ja2enIdx >= ja2enWords.length) { endJa2EnSession(); return; }
+  const w = ja2enWords[ja2enIdx];
+  document.getElementById("ja2en-meaning").textContent = w.meaning;
+  ja2enAnswered = false;
+  document.getElementById("ja2en-result").classList.add("hidden");
+
+  const pool    = allWords.filter(x => x.id !== w.id);
+  const dummies = shuffle(pool).slice(0, 3).map(x => x.word);
+  const options = shuffle([w.word, ...dummies]);
+
+  document.getElementById("ja2en-options").innerHTML = options.map((opt, i) => `
+    <button class="choice-btn w-full text-left px-5 py-3.5 rounded-2xl bg-ink-800/80 border border-ink-700/60 text-ink-200 text-sm font-mono font-medium"
+            data-correct="${opt === w.word}"
+            data-wordid="${w.id}">
+      <span class="text-ink-500 mr-2">${String.fromCharCode(65+i)}.</span>${opt}
+    </button>`).join("");
+
+  updateTestProgress2("ja2en");
+}
+
+window.handleJa2En = async function(btn, wordId, isCorrect) {
+  if (ja2enAnswered) return;
+  ja2enAnswered = true;
+  document.querySelectorAll("#ja2en-options .choice-btn").forEach(b => {
+    b.disabled = true;
+    if (b.dataset.correct === "true") b.classList.add("correct");
+  });
+  if (isCorrect) {
+    btn.classList.add("correct"); ja2enCorrect++;
+    playSound("correct"); showFeedback2("ja2en","✓","jade"); showToast("正解！","success");
+  } else {
+    btn.classList.add("incorrect"); ja2enWrong.push(wordId);
+    playSound("wrong"); showFeedback2("ja2en","✕","rose"); showToast("不正解…","error");
+  }
+  await updateWordProgress(wordId, isCorrect);
+  setTimeout(() => { hideFeedback2("ja2en"); ja2enIdx++; renderJa2En(); }, 900);
+};
+
+function endJa2EnSession() {
+  document.getElementById("ja2en-session-end").classList.remove("hidden");
+  document.getElementById("ja2en-result-correct").textContent = ja2enCorrect;
+  document.getElementById("ja2en-result-wrong").textContent   = ja2enWrong.length;
+  document.getElementById("btn-ja2en-retry-wrong").classList.toggle("hidden", ja2enWrong.length === 0);
+  if (ja2enWrong.length === 0) playSound("perfect");
+  else if (ja2enCorrect / ja2enWords.length >= 0.8) playSound("correct");
+}
+
+// ═══════════════════════════════════════════════════════════════
+// ── リスニングモード (listen) ─────────────────────────────────
+// ═══════════════════════════════════════════════════════════════
+let listenIdx = 0, listenWords = [], listenCorrect = 0, listenWrong = [], listenAnswered = false;
+
+// 優先順位付きで最適な英語音声を選ぶ
+function pickVoice() {
+  const voices = window.speechSynthesis.getVoices();
+  if (!voices.length) return null;
+
+  // 英検らしいクリアな声を優先順位で探す
+  // iOS: Daniel (en-GB), Samantha (en-US)
+  // Android/Chrome: Google US English, Google UK English Female
+  // macOS: Alex, Samantha, Daniel
+  const preferred = [
+    "Daniel",           // iOS/macOS en-GB — 落ち着いた男声
+    "Google UK English Female",  // Chrome en-GB
+    "Serena",           // macOS en-GB
+    "Arthur",           // macOS en-GB
+    "Google US English",
+    "Samantha",         // iOS/macOS en-US
+    "Alex",             // macOS en-US
+    "Karen",            // iOS en-AU
+    "Google UK English Male",
+  ];
+
+  for (const name of preferred) {
+    const v = voices.find(v => v.name === name);
+    if (v) return v;
+  }
+
+  // フォールバック: en-GB → en-AU → en-US の順
+  return (
+    voices.find(v => v.lang === "en-GB") ||
+    voices.find(v => v.lang === "en-AU") ||
+    voices.find(v => v.lang.startsWith("en-US")) ||
+    voices.find(v => v.lang.startsWith("en")) ||
+    null
+  );
+}
+
+let _selectedVoice = null;
+
+function speak(text) {
+  if (!window.speechSynthesis) return;
+  window.speechSynthesis.cancel();
+
+  // 音声リストが非同期で読み込まれる場合があるので再取得
+  if (!_selectedVoice) _selectedVoice = pickVoice();
+
+  const utt = new SpeechSynthesisUtterance(text);
+  utt.lang  = "en-GB";   // 英検風にBritish English優先
+  utt.rate  = 0.82;      // 少しゆっくり（英検本番より若干遅め）
+  utt.pitch = 1.0;       // 自然なピッチ
+  utt.volume = 1.0;
+
+  if (_selectedVoice) utt.voice = _selectedVoice;
+
+  const btn = document.getElementById("btn-listen-speak");
+  if (btn) {
+    btn.classList.add("speaking");
+    utt.onend   = () => btn.classList.remove("speaking");
+    utt.onerror = () => btn.classList.remove("speaking");
+  }
+
+  // iOS Safari対策: 少し遅らせて発話
+  setTimeout(() => window.speechSynthesis.speak(utt), 80);
+}
+
+// 音声リストが後から読み込まれたときに再選択
+if (window.speechSynthesis) {
+  window.speechSynthesis.onvoiceschanged = () => {
+    _selectedVoice = pickVoice();
+  };
+}
+
+function initListenMode(words) {
+  listenCorrect  = 0;
+  listenWrong    = [];
+  listenIdx      = 0;
+  listenAnswered = false;
+  listenWords    = shuffle(words ?? [...sessionWords]);
+  document.getElementById("listen-session-end").classList.add("hidden");
+  document.getElementById("listen-result").classList.add("hidden");
+  updateTestProgress2("listen");
+  renderListen();
+}
+
+function renderListen() {
+  if (listenIdx >= listenWords.length) { endListenSession(); return; }
+  const w = listenWords[listenIdx];
+  listenAnswered = false;
+  document.getElementById("listen-result").classList.add("hidden");
+  document.getElementById("listen-hint").textContent = "ボタンをタップして再生";
+
+  // 選択肢は日本語の意味
+  const pool    = allWords.filter(x => x.id !== w.id);
+  const dummies = shuffle(pool).slice(0, 3).map(x => x.meaning);
+  const options = shuffle([w.meaning, ...dummies]);
+
+  document.getElementById("listen-options").innerHTML = options.map((opt, i) => {
+    const correct = opt === w.meaning;
+    return `<button class="choice-btn w-full text-left px-5 py-3.5 rounded-2xl bg-ink-800/80 border border-ink-700/60 text-ink-200 font-medium"
+            data-correct="${correct}"
+            data-wordid="${w.id}">
+      <span class="text-ink-500 font-mono mr-2">${String.fromCharCode(65+i)}.</span>${opt}
+    </button>`;
+  }).join("");
+
+  // 自動再生
+  setTimeout(() => speak(w.word), 400);
+  updateTestProgress2("listen");
+}
+
+window.handleListen = async function(btn, wordId, isCorrect) {
+  if (listenAnswered) return;
+  listenAnswered = true;
+  const w = listenWords[listenIdx];
+  document.querySelectorAll("#listen-options .choice-btn").forEach(b => {
+    b.disabled = true;
+    if (b.dataset.correct === "true") b.classList.add("correct");
+  });
+  if (isCorrect) {
+    btn.classList.add("correct"); listenCorrect++;
+    playSound("correct"); showFeedback2("listen","✓","jade"); showToast("正解！","success");
+  } else {
+    btn.classList.add("incorrect"); listenWrong.push(wordId);
+    playSound("wrong"); showFeedback2("listen","✕","rose"); showToast("不正解…","error");
+  }
+  // 正解単語と意味を表示してから次へ
+  document.getElementById("listen-result").classList.remove("hidden");
+  document.getElementById("listen-result-msg").textContent   = isCorrect ? `正解！` : `不正解…`;
+  document.getElementById("listen-correct-word").textContent = `${w.word}  ＝  ${w.meaning}`;
+  await updateWordProgress(wordId, isCorrect);
+  setTimeout(() => {
+    hideFeedback2("listen");
+  }, 600);
+};
+
+function endListenSession() {
+  document.getElementById("listen-session-end").classList.remove("hidden");
+  document.getElementById("listen-result-correct").textContent = listenCorrect;
+  document.getElementById("listen-result-wrong").textContent   = listenWrong.length;
+  document.getElementById("btn-listen-retry-wrong").classList.toggle("hidden", listenWrong.length === 0);
+  if (listenWrong.length === 0) playSound("perfect");
+}
+
+// ═══════════════════════════════════════════════════════════════
+// ── 時間制限クイズ (timed) ────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════
+const TIMED_SECONDS = 10;
+let timedIdx = 0, timedWords = [], timedCorrect = 0, timedWrong = 0;
+let timedStreak = 0, timedMaxStreak = 0;
+let timedAnswered = false, timedTimerInterval = null, timedTimeLeft = TIMED_SECONDS;
+
+function stopTimedTimer() {
+  if (timedTimerInterval) { clearInterval(timedTimerInterval); timedTimerInterval = null; }
+}
+
+function startTimedTimer() {
+  stopTimedTimer();
+  timedTimeLeft = TIMED_SECONDS;
+  updateTimerUI();
+  timedTimerInterval = setInterval(() => {
+    timedTimeLeft = Math.max(0, timedTimeLeft - 0.1);
+    updateTimerUI();
+    if (timedTimeLeft <= 0) {
+      stopTimedTimer();
+      if (!timedAnswered) timedTimeout();
+    }
+  }, 100);
+}
+
+function updateTimerUI() {
+  const pct = (timedTimeLeft / TIMED_SECONDS) * 100;
+  const bar = document.getElementById("timed-timer-bar");
+  const lbl = document.getElementById("timed-timer-label");
+  if (!bar || !lbl) return;
+  bar.style.width = pct + "%";
+  bar.classList.toggle("danger", timedTimeLeft <= 3);
+  bar.style.background = timedTimeLeft <= 3 ? "#fb7185" : timedTimeLeft <= 5 ? "#fbbf24" : "#4ade80";
+  lbl.textContent = timedTimeLeft.toFixed(1) + "s";
+  lbl.style.color = timedTimeLeft <= 3 ? "#fb7185" : timedTimeLeft <= 5 ? "#fbbf24" : "#fbbf24";
+}
+
+function timedTimeout() {
+  if (timedAnswered) return;
+  timedAnswered = true;
+  timedWrong++;
+  timedStreak = 0;
+  document.querySelectorAll("#timed-options .choice-btn").forEach(b => {
+    b.disabled = true;
+    if (b.dataset.correct === "true") b.classList.add("correct");
+  });
+  playSound("wrong");
+  showFeedback2("timed","⏰","rose");
+  showToast("時間切れ！","error");
+  setTimeout(() => { hideFeedback2("timed"); timedIdx++; renderTimed(); }, 900);
+}
+
+function initTimedMode(words) {
+  timedCorrect  = 0; timedWrong    = 0;
+  timedStreak   = 0; timedMaxStreak= 0;
+  timedIdx      = 0; timedAnswered = false;
+  timedWords    = shuffle(words ?? [...sessionWords]);
+  stopTimedTimer();
+  document.getElementById("timed-session-end").classList.add("hidden");
+  document.getElementById("timed-streak-label").textContent = "連続正解: 0";
+  updateTestProgress2("timed");
+  renderTimed();
+}
+
+function renderTimed() {
+  if (timedIdx >= timedWords.length) { stopTimedTimer(); endTimedSession(); return; }
+  const w = timedWords[timedIdx];
+  document.getElementById("timed-word").textContent = w.word;
+  timedAnswered = false;
+
+  const pool    = allWords.filter(x => x.id !== w.id);
+  const dummies = shuffle(pool).slice(0, 3).map(x => x.meaning);
+  const options = shuffle([w.meaning, ...dummies]);
+
+  document.getElementById("timed-options").innerHTML = options.map((opt, i) => `
+    <button class="choice-btn w-full text-left px-5 py-3.5 rounded-2xl bg-ink-800/80 border border-ink-700/60 text-ink-200 text-sm font-medium"
+            data-correct="${opt === w.meaning}"
+            data-wordid="${w.id}">
+      <span class="text-ink-500 font-mono mr-2">${String.fromCharCode(65+i)}.</span>${opt}
+    </button>`).join("");
+
+  updateTestProgress2("timed");
+  startTimedTimer();
+}
+
+window.handleTimed = async function(btn, wordId, isCorrect) {
+  if (timedAnswered) return;
+  timedAnswered = true;
+  stopTimedTimer();
+  document.querySelectorAll("#timed-options .choice-btn").forEach(b => {
+    b.disabled = true;
+    if (b.dataset.correct === "true") b.classList.add("correct");
+  });
+  if (isCorrect) {
+    btn.classList.add("correct"); timedCorrect++;
+    timedStreak++; if (timedStreak > timedMaxStreak) timedMaxStreak = timedStreak;
+    playSound("correct"); showFeedback2("timed","✓","jade"); showToast("正解！","success");
+  } else {
+    btn.classList.add("incorrect"); timedWrong++;
+    timedStreak = 0;
+    playSound("wrong"); showFeedback2("timed","✕","rose"); showToast("不正解…","error");
+  }
+  document.getElementById("timed-streak-label").textContent = `連続正解: ${timedStreak}`;
+  await updateWordProgress(wordId, isCorrect);
+  setTimeout(() => { hideFeedback2("timed"); timedIdx++; renderTimed(); }, 700);
+};
+
+function endTimedSession() {
+  document.getElementById("timed-session-end").classList.remove("hidden");
+  document.getElementById("timed-result-correct").textContent = timedCorrect;
+  document.getElementById("timed-result-wrong").textContent   = timedWrong;
+  document.getElementById("timed-result-streak").textContent  = timedMaxStreak;
+  document.getElementById("timed-end-icon").textContent =
+    timedWrong === 0 ? "🏆" : timedCorrect / (timedCorrect + timedWrong) >= 0.8 ? "🎯" : "⏱";
+  if (timedWrong === 0) playSound("perfect");
+  else if (timedCorrect / timedWords.length >= 0.8) playSound("correct");
+}
+
+// ─────────────────────────────────────────────────────────────
+// 新モード用共通ヘルパー
+// ─────────────────────────────────────────────────────────────
+function showFeedback2(mode, icon, color) {
+  const el = document.getElementById(`${mode}-feedback`);
+  const ic = document.getElementById(`${mode}-feedback-icon`);
+  if (!el || !ic) return;
+  ic.textContent = icon;
+  ic.className   = `text-8xl animate-pop-in ${color === "jade" ? "text-jade-400" : "text-rose-400"}`;
+  el.classList.remove("hidden");
+}
+function hideFeedback2(mode) {
+  document.getElementById(`${mode}-feedback`)?.classList.add("hidden");
+}
+
+function updateTestProgress2(mode) {
+  let current, total, correct;
+  if (mode === "ja2en")  { current = ja2enIdx;  total = ja2enWords.length;  correct = ja2enCorrect; }
+  else if (mode === "listen") { current = listenIdx; total = listenWords.length; correct = listenCorrect; }
+  else if (mode === "timed")  { current = timedIdx;  total = timedWords.length;  correct = timedCorrect; }
+  else return;
+  const pct = total ? (current / total) * 100 : 0;
+  document.getElementById("progress-fill").style.width  = `${pct}%`;
+  document.getElementById("progress-label").textContent = `${current} / ${total}`;
+  document.getElementById("progress-score").textContent = `正解: ${correct}`;
+}
+
+// ═══════════════════════════════════════════════════════════════
 // イベントバインド
 // ═══════════════════════════════════════════════════════════════
 function bindEvents() {
@@ -853,6 +1307,18 @@ function bindEvents() {
     renderHome();
     showScreen("screen-home");
     document.getElementById("card-scene").style.visibility = "";
+  });
+
+  document.getElementById("btn-back-from-wordlist").addEventListener("click", () => {
+    renderHome();
+    showScreen("screen-home");
+  });
+
+  document.getElementById("screen-wordlist").addEventListener("click", e => {
+    const btn = e.target.closest(".wl-filter-btn");
+    if (!btn) return;
+    wordlistFilter = btn.dataset.filter;
+    renderWordList();
   });
 
   // ── 🔊 ミュートトグル ──
@@ -922,15 +1388,58 @@ function bindEvents() {
     renderHome(); showScreen("screen-home");
   });
 
-  // ── 穴埋め ──
-  document.getElementById("btn-fill-retry-wrong").addEventListener("click", () => {
-    playSound("click");
-    document.getElementById("fill-session-end").classList.add("hidden");
-    initFillMode(allWords.filter(w => fillWrong.includes(w.id)));
+  // ── 日本語→英語 ──
+  document.getElementById("ja2en-options").addEventListener("click", e => {
+    const btn = e.target.closest(".choice-btn");
+    if (!btn) return;
+    handleJa2En(btn, btn.dataset.wordid, btn.dataset.correct === "true");
   });
-  document.getElementById("btn-fill-finish").addEventListener("click", () => {
+  document.getElementById("btn-ja2en-next").addEventListener("click", () => {
+    playSound("click"); ja2enIdx++; renderJa2En();
+  });
+  document.getElementById("btn-ja2en-retry-wrong").addEventListener("click", () => {
     playSound("click");
-    renderHome(); showScreen("screen-home");
+    document.getElementById("ja2en-session-end").classList.add("hidden");
+    initJa2EnMode(allWords.filter(w => ja2enWrong.includes(w.id)));
+  });
+  document.getElementById("btn-ja2en-finish").addEventListener("click", () => {
+    playSound("click"); renderHome(); showScreen("screen-home");
+  });
+
+  // ── リスニング ──
+  document.getElementById("listen-options").addEventListener("click", e => {
+    const btn = e.target.closest(".choice-btn");
+    if (!btn) return;
+    handleListen(btn, btn.dataset.wordid, btn.dataset.correct === "true");
+  });
+  document.getElementById("btn-listen-speak").addEventListener("click", () => {
+    if (listenIdx < listenWords.length) speak(listenWords[listenIdx].word);
+  });
+  document.getElementById("btn-listen-next").addEventListener("click", () => {
+    playSound("click"); listenIdx++; renderListen();
+  });
+  document.getElementById("btn-listen-retry-wrong").addEventListener("click", () => {
+    playSound("click");
+    document.getElementById("listen-session-end").classList.add("hidden");
+    initListenMode(allWords.filter(w => listenWrong.includes(w.id)));
+  });
+  document.getElementById("btn-listen-finish").addEventListener("click", () => {
+    playSound("click"); renderHome(); showScreen("screen-home");
+  });
+
+  // ── タイムアタック ──
+  document.getElementById("timed-options").addEventListener("click", e => {
+    const btn = e.target.closest(".choice-btn");
+    if (!btn) return;
+    handleTimed(btn, btn.dataset.wordid, btn.dataset.correct === "true");
+  });
+  document.getElementById("btn-timed-retry").addEventListener("click", () => {
+    playSound("click");
+    document.getElementById("timed-session-end").classList.add("hidden");
+    initTimedMode();
+  });
+  document.getElementById("btn-timed-finish").addEventListener("click", () => {
+    stopTimedTimer(); playSound("click"); renderHome(); showScreen("screen-home");
   });
 
   // ── 復習 ──
@@ -971,12 +1480,93 @@ function bindEvents() {
       showToast("サインイン失敗: " + e.message, "error");
     }
   });
+
+  // メール/パスワード認証
+  function getEmailFields() {
+    return {
+      email:    document.getElementById("input-email").value.trim(),
+      password: document.getElementById("input-password").value,
+      errEl:    document.getElementById("email-auth-error"),
+    };
+  }
+
+  document.getElementById("btn-email-signin").addEventListener("click", async () => {
+    if (!firebaseReady) { showToast("Firebase未設定です", "error"); return; }
+    const { email, password, errEl } = getEmailFields();
+    errEl.classList.add("hidden");
+    if (!email || !password) { errEl.textContent = "メールとパスワードを入力してください"; errEl.classList.remove("hidden"); return; }
+    try {
+      await signInWithEmailAndPassword(auth, email, password);
+      showToast("ログインしました！", "success");
+      document.getElementById("modal-login").classList.add("hidden");
+    } catch (err) {
+      errEl.textContent =
+        err.code === "auth/wrong-password"     ? "パスワードが違います" :
+        err.code === "auth/user-not-found"     ? "このメールは登録されていません" :
+        err.code === "auth/invalid-credential" ? "メールアドレスまたはパスワードが違います" :
+        err.code === "auth/invalid-email"      ? "メールアドレスの形式が正しくありません" :
+        err.message;
+      errEl.classList.remove("hidden");
+    }
+  });
+
+  document.getElementById("btn-email-signup").addEventListener("click", async () => {
+    if (!firebaseReady) { showToast("Firebase未設定です", "error"); return; }
+    const { email, password, errEl } = getEmailFields();
+    errEl.classList.add("hidden");
+    if (!email || !password) { errEl.textContent = "メールとパスワードを入力してください"; errEl.classList.remove("hidden"); return; }
+    if (password.length < 6) { errEl.textContent = "パスワードは6文字以上にしてください"; errEl.classList.remove("hidden"); return; }
+    try {
+      if (currentUser?.isAnonymous) {
+        try {
+          await linkWithCredential(currentUser, EmailAuthProvider.credential(email, password));
+          showToast("アカウントを作成しました！", "success");
+        } catch (linkErr) {
+          if (linkErr.code === "auth/email-already-in-use") {
+            // すでに登録済み → 既存アカウントにサインイン
+            await signInWithEmailAndPassword(auth, email, password);
+            showToast("既存のアカウントでログインしました！", "success");
+          } else {
+            throw linkErr;
+          }
+        }
+      } else {
+        await createUserWithEmailAndPassword(auth, email, password);
+        showToast("アカウントを作成しました！", "success");
+      }
+      document.getElementById("modal-login").classList.add("hidden");
+    } catch (err) {
+      errEl.textContent =
+        err.code === "auth/email-already-in-use" ? "このメールはすでに登録されています" :
+        err.code === "auth/invalid-email"        ? "メールアドレスの形式が正しくありません" :
+        err.code === "auth/weak-password"        ? "パスワードが弱すぎます" :
+        err.code === "auth/invalid-credential"   ? "パスワードが違います" :
+        err.message;
+      errEl.classList.remove("hidden");
+    }
+  });
   document.getElementById("btn-logout").addEventListener("click", async () => {
     if (!firebaseReady) return;
     await signOut(auth);
     await signInAnonymously(auth);
     showToast("ログアウトしました（匿名モードに戻りました）");
   });
+
+  document.getElementById("btn-upload-progress").addEventListener("click", async () => {
+    if (!currentUser || currentUser.isAnonymous) return;
+    const btn = document.getElementById("btn-upload-progress");
+    btn.textContent = "保存中…";
+    btn.disabled = true;
+    const count = await uploadProgressToFirestore();
+    btn.textContent = "↑ 保存";
+    btn.disabled = false;
+    showToast(`クラウドに保存しました（${count}語）`, "success");
+  });
+}
+
+function showUploadBtn(visible) {
+  const btn = document.getElementById("btn-upload-progress");
+  if (btn) btn.classList.toggle("hidden", !visible);
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -994,8 +1584,11 @@ function setupAuth() {
       currentUser = user;
       setAuthUI(user);
       progress = loadLocalProgress();
+      // ローカルの進捗をまずアップロードしてからクラウドとマージ
+      if (!user.isAnonymous) await uploadProgressToFirestore();
       await fetchFirestoreProgress(user.uid);
       renderHome();
+      if (!user.isAnonymous) showUploadBtn(true);
     } else {
       try {
         await signInAnonymously(auth);
@@ -1026,131 +1619,17 @@ function setAuthUI(user) {
   if (user.isAnonymous) {
     label.textContent   = "匿名ユーザー";
     label.className     = "text-xs text-gold-400 font-mono";
-    btnAuth.textContent = "Googleで同期";
+    btnAuth.textContent = "アカウントで同期";
     btnAuth.classList.remove("hidden");
     btnLogout.classList.add("hidden");
+    showUploadBtn(false);
   } else {
     label.textContent = user.displayName ?? user.email;
     label.className   = "text-xs text-jade-400 font-mono";
     btnAuth.classList.add("hidden");
     btnLogout.classList.remove("hidden");
+    showUploadBtn(true);
   }
-}
-
-
-// ═══════════════════════════════════════════════════════════════
-// ── 穴埋め4択モード（英文中の ___ に単語を当てる）────────────
-// ═══════════════════════════════════════════════════════════════
-let fillIdx      = 0;
-let fillWords    = [];
-let fillCorrect  = 0;
-let fillWrong    = [];
-let fillAnswered = false;
-
-function initFillMode(words) {
-  fillCorrect  = 0;
-  fillWrong    = [];
-  fillIdx      = 0;
-  fillAnswered = false;
-  // 例文がある単語のみ対象
-  const candidates = (words ?? [...sessionWords]).filter(w => w.example);
-  fillWords = shuffle(candidates);
-
-  document.getElementById("fill-session-end").classList.add("hidden");
-  updateTestProgress("fill");
-
-  if (fillWords.length === 0) {
-    showToast("このセッションに例文データがありません", "error");
-    return;
-  }
-  renderFill();
-}
-
-function renderFill() {
-  if (fillIdx >= fillWords.length) { endFillSession(); return; }
-  const w = fillWords[fillIdx];
-
-  // ___ をハイライト付きスパンに置換して表示
-  const sentence = (w.example || "").replace(
-    "___",
-    '<span class="inline-block px-3 py-0.5 rounded-lg bg-jade-500/20 border border-jade-500/40 text-jade-300 font-mono font-bold">___</span>'
-  );
-  document.getElementById("fill-sentence").innerHTML = sentence;
-  fillAnswered = false;
-
-  // ダミー選択肢：同ユニット内から3語
-  const unitWords = wordsOfUnit(w.unit).filter(x => x.id !== w.id);
-  const pool      = unitWords.length >= 3 ? unitWords : allWords.filter(x => x.id !== w.id);
-  const dummies   = shuffle(pool).slice(0, 3).map(x => x.word);
-  const options   = shuffle([w.word, ...dummies]);
-
-  document.getElementById("fill-options").innerHTML = options.map((opt, i) => `
-    <button class="choice-btn w-full text-left px-4 py-3.5 rounded-2xl bg-ink-800/80 border border-ink-700/60 text-ink-200 text-sm font-mono font-semibold"
-            data-correct="${opt === w.word}"
-            onclick="handleFill(this, '${w.id}', ${opt === w.word})">
-      <span class="text-ink-500 mr-2">${String.fromCharCode(65 + i)}.</span>${opt}
-    </button>`).join("");
-
-  updateTestProgress("fill");
-}
-
-window.handleFill = async function(btn, wordId, isCorrect) {
-  if (fillAnswered) return;
-  fillAnswered = true;
-
-  document.querySelectorAll("#fill-options .choice-btn").forEach(b => {
-    b.disabled = true;
-    if (b.dataset.correct === "true") b.classList.add("correct");
-  });
-
-  // 正解語を例文中でハイライト表示
-  const w = fillWords[fillIdx];
-  const highlighted = (w.example || "").replace(
-    "___",
-    `<span class="inline-block px-3 py-0.5 rounded-lg ${isCorrect ? 'bg-jade-500/30 border border-jade-500/60 text-jade-200' : 'bg-rose-500/30 border border-rose-500/60 text-rose-200'} font-mono font-bold">${w.word}</span>`
-  );
-  document.getElementById("fill-sentence").innerHTML = highlighted;
-
-  if (isCorrect) {
-    btn.classList.add("correct");
-    fillCorrect++;
-    playSound("correct");
-    showFillFeedback("✓", "jade");
-    showToast("正解！", "success");
-  } else {
-    btn.classList.add("incorrect");
-    fillWrong.push(wordId);
-    playSound("wrong");
-    showFillFeedback("✕", "rose");
-    showToast(`不正解… 正解は「${w.word}」`, "error");
-  }
-
-  await updateWordProgress(wordId, isCorrect);
-  setTimeout(() => {
-    hideFillFeedback();
-    fillIdx++;
-    renderFill();
-  }, 1100);
-};
-
-function showFillFeedback(icon, color) {
-  const el = document.getElementById("fill-feedback");
-  const ic = document.getElementById("fill-feedback-icon");
-  ic.textContent = icon;
-  ic.className   = `text-8xl animate-pop-in ${color === "jade" ? "text-jade-400" : "text-rose-400"}`;
-  el.classList.remove("hidden");
-}
-function hideFillFeedback() {
-  document.getElementById("fill-feedback").classList.add("hidden");
-}
-
-function endFillSession() {
-  document.getElementById("fill-session-end").classList.remove("hidden");
-  document.getElementById("fill-result-correct").textContent = fillCorrect;
-  document.getElementById("fill-result-wrong").textContent   = fillWrong.length;
-  document.getElementById("btn-fill-retry-wrong").classList.toggle("hidden", fillWrong.length === 0);
-  if (fillWrong.length === 0) playSound("perfect");
-  else if (fillCorrect / fillWords.length >= 0.8) playSound("correct");
 }
 
 // ═══════════════════════════════════════════════════════════════
