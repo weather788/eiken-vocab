@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="ja" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>英検準1級 単語マスター</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            display: ['"DM Serif Display"', 'serif'],
+            sans: ['"DM Sans"', 'sans-serif'],
+            mono: ['"JetBrains Mono"', 'monospace'],
+          },
+          colors: {
+            ink: { 50:'#f0f0f2', 100:'#dcdde3', 200:'#b8bac8', 300:'#9395ab', 400:'#6e718e', 500:'#4a4d71', 600:'#3b3d5a', 700:'#2c2e44', 800:'#1d1e2e', 900:'#0f1019', 950:'#07080d' },
+            jade: { 400:'#4ade80', 500:'#22c55e', 600:'#16a34a' },
+            ember: { 400:'#fb923c', 500:'#f97316', 600:'#ea580c' },
+            rose:  { 400:'#fb7185', 500:'#f43f5e' },
+            gold:  { 300:'#fde68a', 400:'#fbbf24', 500:'#f59e0b' },
+          },
+          animation: {
+            'flip-in':  'flipIn 0.4s ease forwards',
+            'flip-out': 'flipOut 0.2s ease forwards',
+            'pop-in':   'popIn 0.25s cubic-bezier(0.34,1.56,0.64,1) forwards',
+            'slide-up': 'slideUp 0.3s ease forwards',
+            'shake':    'shake 0.4s ease',
+            'pulse-ring':'pulseRing 1s ease-out infinite',
+          },
+          keyframes: {
+            flipIn:  { from:{ transform:'rotateY(90deg)', opacity:'0' }, to:{ transform:'rotateY(0deg)', opacity:'1' } },
+            flipOut: { from:{ transform:'rotateY(0deg)', opacity:'1' }, to:{ transform:'rotateY(-90deg)', opacity:'0' } },
+            popIn:   { from:{ transform:'scale(0.8)', opacity:'0' }, to:{ transform:'scale(1)', opacity:'1' } },
+            slideUp: { from:{ transform:'translateY(20px)', opacity:'0' }, to:{ transform:'translateY(0)', opacity:'1' } },
+            shake:   { '0%,100%':{ transform:'translateX(0)' }, '20%,60%':{ transform:'translateX(-8px)' }, '40%,80%':{ transform:'translateX(8px)' } },
+            pulseRing: { '0%':{ transform:'scale(1)', opacity:'1' }, '100%':{ transform:'scale(1.5)', opacity:'0' } },
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      background: #0f1019;
+      color: #dcdde3;
+      font-family: 'DM Sans', sans-serif;
+      min-height: 100vh;
+      background-image:
+        radial-gradient(ellipse 80% 50% at 20% 10%, rgba(74,77,113,0.15) 0%, transparent 60%),
+        radial-gradient(ellipse 60% 40% at 80% 90%, rgba(34,197,94,0.05) 0%, transparent 50%);
+    }
+
+    /* ─── Card Flip ─── */
+    .card-scene { perspective: 1000px; }
+    .card-inner {
+      position: relative; width: 100%; height: 100%;
+      transition: transform 0.55s cubic-bezier(0.4,0,0.2,1);
+      transform-style: preserve-3d;
+    }
+    .card-inner.is-flipped { transform: rotateY(180deg); }
+    .card-face {
+      position: absolute; inset: 0;
+      backface-visibility: hidden;
+      -webkit-backface-visibility: hidden;
+      border-radius: 1.25rem;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+    }
+    .card-back { transform: rotateY(180deg); }
+
+    /* ─── Progress bar ─── */
+    .progress-fill { transition: width 0.5s cubic-bezier(0.4,0,0.2,1); }
+
+    /* ─── Choice buttons ─── */
+    .choice-btn {
+      transition: all 0.15s ease;
+      border: 2px solid transparent;
+    }
+    .choice-btn:hover:not(:disabled) {
+      border-color: rgba(74,222,128,0.4);
+      background: rgba(74,222,128,0.06);
+      transform: translateY(-1px);
+    }
+    .choice-btn.correct  { border-color: #4ade80; background: rgba(74,222,128,0.12); }
+    .choice-btn.incorrect{ border-color: #fb7185; background: rgba(251,113,133,0.12); animation: shake 0.4s ease; }
+
+    /* ─── Input focus ─── */
+    .spell-input:focus { outline: none; box-shadow: 0 0 0 2px rgba(74,222,128,0.5); }
+
+    /* ─── Unit card hover ─── */
+    .unit-card { transition: all 0.2s ease; }
+    .unit-card:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.4); }
+
+    /* ─── Scrollbar ─── */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: #1d1e2e; }
+    ::-webkit-scrollbar-thumb { background: #3b3d5a; border-radius: 3px; }
+
+    /* ─── Modal backdrop ─── */
+    .modal-backdrop { backdrop-filter: blur(6px); background: rgba(7,8,13,0.75); }
+
+    /* ─── Tab indicator ─── */
+    .tab-btn { transition: all 0.2s ease; position: relative; }
+    .tab-btn.active::after {
+      content: '';
+      position: absolute; bottom: -2px; left: 0; right: 0; height: 2px;
+      background: linear-gradient(90deg, #4ade80, #22c55e);
+      border-radius: 1px;
+    }
+
+    /* ─── Toast ─── */
+    #toast {
+      transition: all 0.3s ease;
+      transform: translateY(100%);
+      opacity: 0;
+    }
+    #toast.show {
+      transform: translateY(0);
+      opacity: 1;
+    }
+  </style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- HEADER                                                       -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<header class="sticky top-0 z-50 border-b border-ink-700/60" style="background:rgba(15,16,25,0.92);backdrop-filter:blur(12px);">
+  <div class="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
+    <div class="flex items-center gap-3">
+      <button id="btn-back-home" class="hidden text-ink-400 hover:text-jade-400 transition-colors p-1 rounded-lg hover:bg-ink-800">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+      </button>
+      <h1 class="font-display text-xl text-ink-50 tracking-tight">英検準1級<span class="text-jade-400 ml-1">単語マスター</span></h1>
+    </div>
+    <div class="flex items-center gap-3">
+      <!-- Auth status -->
+      <div id="auth-status" class="flex items-center gap-2">
+        <div id="auth-loading" class="w-2 h-2 rounded-full bg-gold-400 animate-pulse"></div>
+        <span id="auth-label" class="text-xs text-ink-400 font-mono">接続中...</span>
+      </div>
+      <button id="btn-auth" class="text-xs px-3 py-1.5 rounded-lg bg-ink-700 hover:bg-ink-600 text-ink-200 transition-colors font-medium hidden">
+        ログイン
+      </button>
+      <button id="btn-logout" class="text-xs px-3 py-1.5 rounded-lg bg-ink-700 hover:bg-ink-600 text-ink-200 transition-colors font-medium hidden">
+        ログアウト
+      </button>
+      <!-- 🔊 ミュートボタン -->
+      <button id="btn-sound" title="効果音オン/オフ"
+        class="w-8 h-8 rounded-lg bg-ink-700 hover:bg-ink-600 text-ink-300 transition-colors flex items-center justify-center text-base">
+        🔊
+      </button>
+    </div>
+  </div>
+</header>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- SCREEN: HOME                                                 -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<div id="screen-home" class="max-w-5xl mx-auto px-4 py-8">
+
+  <!-- Review Alert -->
+  <div id="review-alert" class="hidden mb-6 animate-slide-up">
+    <div class="relative overflow-hidden rounded-2xl border border-gold-400/30 p-4 flex items-center gap-4"
+         style="background:linear-gradient(135deg,rgba(251,191,36,0.08),rgba(245,158,11,0.04));">
+      <div class="relative flex-shrink-0">
+        <div class="w-10 h-10 rounded-full bg-gold-400/20 flex items-center justify-center">
+          <svg class="w-5 h-5 text-gold-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+        </div>
+        <div class="absolute inset-0 rounded-full bg-gold-400/20 animate-pulse-ring"></div>
+      </div>
+      <div class="flex-1">
+        <p class="text-gold-300 font-semibold text-sm">今日の復習タイム！</p>
+        <p class="text-gold-400/70 text-xs mt-0.5">忘却曲線に基づく <span id="review-count" class="font-bold text-gold-300">0</span> 語が復習待ちです</p>
+      </div>
+      <button id="btn-start-review" class="flex-shrink-0 px-4 py-2 rounded-xl bg-gold-400/20 hover:bg-gold-400/30 text-gold-300 text-sm font-semibold transition-colors border border-gold-400/30">
+        復習する →
+      </button>
+    </div>
+  </div>
+
+  <!-- Stats bar -->
+  <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+    <div class="rounded-2xl p-4 border border-ink-700/60 bg-ink-800/60">
+      <p class="text-xs text-ink-400 mb-1">総単語数</p>
+      <p class="font-display text-2xl text-ink-100" id="stat-total">—</p>
+    </div>
+    <div class="rounded-2xl p-4 border border-jade-500/30 bg-jade-500/5">
+      <p class="text-xs text-jade-400 mb-1">習得済み</p>
+      <p class="font-display text-2xl text-jade-400" id="stat-mastered">—</p>
+    </div>
+    <div class="rounded-2xl p-4 border border-ember-500/30 bg-ember-500/5">
+      <p class="text-xs text-ember-400 mb-1">学習中</p>
+      <p class="font-display text-2xl text-ember-400" id="stat-learning">—</p>
+    </div>
+    <div class="rounded-2xl p-4 border border-rose-500/30 bg-rose-500/5">
+      <p class="text-xs text-rose-400 mb-1">連続学習</p>
+      <p class="font-display text-xl text-rose-300" id="stat-streak">🔥 0日</p>
+    </div>
+  </div>
+
+  <!-- 全体進捗バー -->
+  <div class="mb-8 rounded-2xl border border-ink-700/60 bg-ink-800/40 px-5 py-4">
+    <div class="flex items-center justify-between mb-2">
+      <span class="text-xs text-ink-400 font-medium">全体進捗</span>
+      <span class="text-xs text-ink-500 font-mono" id="overall-progress-label">0 / 0語習得</span>
+    </div>
+    <div class="w-full h-2 rounded-full bg-ink-700">
+      <div id="overall-progress-bar" class="progress-fill h-full rounded-full bg-gradient-to-r from-jade-600 via-jade-400 to-gold-400" style="width:0%"></div>
+    </div>
+  </div>
+
+  <!-- Unit Grid ヘッダー + フィルターバー -->
+  <div class="mb-3 flex items-center justify-between">
+    <h2 class="font-display text-lg text-ink-100">ユニット一覧</h2>
+    <span class="text-xs text-ink-500 font-mono">Unit 1 〜 15</span>
+  </div>
+
+  <!-- 🎯 学習フィルター切り替え -->
+  <div class="flex gap-2 mb-5 p-1 rounded-xl bg-ink-800/80 border border-ink-700/60">
+    <button id="filter-all"
+      class="filter-btn flex-1 py-2 rounded-lg text-xs font-semibold transition-all bg-ink-700/60 text-jade-400"
+      onclick="setFilter('all')">
+      📚 全単語
+    </button>
+    <button id="filter-notMastered"
+      class="filter-btn flex-1 py-2 rounded-lg text-xs font-semibold transition-all text-ink-400 hover:text-ink-200"
+      onclick="setFilter('notMastered')">
+      🔥 未習得・学習中
+    </button>
+    <button id="filter-unlearned"
+      class="filter-btn flex-1 py-2 rounded-lg text-xs font-semibold transition-all text-ink-400 hover:text-ink-200"
+      onclick="setFilter('unlearned')">
+      ✦ 未学習のみ
+    </button>
+  </div>
+  <!-- フィルター説明 -->
+  <p id="filter-desc" class="text-xs text-ink-500 mb-4 text-center">
+    全単語を表示しています。ユニットをタップして学習開始。
+  </p>
+
+  <div id="unit-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+    <!-- Populated by JS -->
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- SCREEN: STUDY                                                -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<div id="screen-study" class="hidden max-w-3xl mx-auto px-4 py-6">
+
+  <!-- Unit title + session info -->
+  <div class="mb-6 flex items-center justify-between">
+    <div>
+      <h2 class="font-display text-xl text-ink-100" id="study-title">Unit 1</h2>
+      <p class="text-xs text-ink-500 mt-0.5" id="study-subtitle">セッション 1/6</p>
+    </div>
+    <!-- Session selector -->
+    <div class="flex items-center gap-2">
+      <span class="text-xs text-ink-500">セッション</span>
+      <select id="session-select"
+        class="text-xs bg-ink-800 border border-ink-600 rounded-lg px-2 py-1.5 text-ink-200 focus:outline-none focus:border-jade-500">
+      </select>
+    </div>
+  </div>
+
+  <!-- Tab switcher -->
+  <div class="flex gap-1 p-1 rounded-xl bg-ink-800/80 border border-ink-700/60 mb-6">
+    <button class="tab-btn active flex-1 py-2 rounded-lg text-sm font-medium text-jade-400 bg-ink-700/60" data-tab="card">
+      <span class="mr-1">🃏</span> カード
+    </button>
+    <button class="tab-btn flex-1 py-2 rounded-lg text-sm font-medium text-ink-400 hover:text-ink-200" data-tab="choice">
+      <span class="mr-1">🎯</span> 4択
+    </button>
+    <button class="tab-btn flex-1 py-2 rounded-lg text-sm font-medium text-ink-400 hover:text-ink-200" data-tab="spell">
+      <span class="mr-1">✍️</span> 記述
+    </button>
+    <button class="tab-btn flex-1 py-2 rounded-lg text-sm font-medium text-ink-400 hover:text-ink-200" data-tab="fill">
+      <span class="mr-1">📝</span> 穴埋め
+    </button>
+  </div>
+
+  <!-- Progress bar (for test modes) -->
+  <div id="test-progress-wrap" class="hidden mb-4">
+    <div class="flex items-center justify-between mb-1.5">
+      <span class="text-xs text-ink-500 font-mono" id="progress-label">0 / 0</span>
+      <span class="text-xs text-ink-500" id="progress-score">正解: 0</span>
+    </div>
+    <div class="w-full h-1.5 rounded-full bg-ink-700">
+      <div id="progress-fill" class="progress-fill h-full rounded-full bg-gradient-to-r from-jade-500 to-jade-400" style="width:0%"></div>
+    </div>
+  </div>
+
+  <!-- ─── TAB: CARD ─── -->
+  <div id="tab-card" class="tab-panel">
+
+    <!-- Card scene -->
+    <div class="card-scene w-full" style="height:280px;" id="card-scene">
+      <div class="card-inner" id="card-inner">
+        <!-- Front -->
+        <div class="card-face card-front bg-ink-800 border border-ink-600/60" style="box-shadow:0 20px 60px rgba(0,0,0,0.5);">
+          <div class="absolute top-4 right-4 flex items-center gap-2">
+            <span id="card-status-badge" class="text-xs font-mono text-ink-500 bg-ink-700 px-2 py-0.5 rounded-full">未学習</span>
+            <span id="card-pos" class="text-xs font-mono text-ink-500 bg-ink-700 px-2 py-0.5 rounded-full"></span>
+          </div>
+          <div class="absolute top-4 left-4 text-xs text-ink-600 font-mono" id="card-index-front">1 / 20</div>
+          <p class="font-display text-5xl text-ink-50 tracking-tight px-8 text-center" id="card-word-front">—</p>
+          <p class="text-xs text-ink-500 mt-4">クリックしてめくる</p>
+        </div>
+        <!-- Back -->
+        <div class="card-face card-back bg-ink-700 border border-jade-500/30" style="box-shadow:0 20px 60px rgba(0,0,0,0.5);">
+          <p class="font-display text-4xl text-jade-400 px-8 text-center" id="card-meaning-back">—</p>
+          <p class="text-sm text-ink-400 mt-3 font-mono" id="card-word-back-sub">—</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Swipe hint -->
+    <p class="text-center text-xs text-ink-600 mt-3">← キー / スワイプで「まだ」　→ キー / スワイプで「覚えた」</p>
+
+    <!-- Action buttons -->
+    <div id="card-actions-pre" class="flex gap-3 mt-5 justify-center">
+      <button id="btn-flip-card" class="px-8 py-3 rounded-2xl bg-ink-700 hover:bg-ink-600 border border-ink-600 text-ink-100 font-medium transition-all hover:scale-105">
+        めくる
+      </button>
+    </div>
+    <div id="card-actions-post" class="hidden flex gap-3 mt-5 justify-center">
+      <button id="btn-dont-know" class="flex-1 max-w-[160px] py-3 rounded-2xl bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/40 text-rose-400 font-semibold transition-all hover:scale-105">
+        ✕ まだ
+      </button>
+      <button id="btn-know" class="flex-1 max-w-[160px] py-3 rounded-2xl bg-jade-500/15 hover:bg-jade-500/25 border border-jade-500/40 text-jade-400 font-semibold transition-all hover:scale-105">
+        ✓ 覚えた
+      </button>
+    </div>
+
+    <!-- Card session result -->
+    <div id="card-session-end" class="hidden mt-8 animate-pop-in text-center">
+      <p class="font-display text-2xl text-ink-100 mb-2">セッション完了！</p>
+      <p class="text-ink-400 text-sm mb-6">
+        覚えた: <span id="card-result-know" class="text-jade-400 font-bold">0</span> 語　／　
+        まだ:   <span id="card-result-dunno" class="text-rose-400 font-bold">0</span> 語
+      </p>
+      <button id="btn-card-retry-dunno" class="px-6 py-2.5 rounded-xl bg-ember-500/15 border border-ember-500/40 text-ember-400 font-medium mr-3 transition-colors hover:bg-ember-500/25">
+        まだ語を再挑戦
+      </button>
+      <button id="btn-card-finish" class="px-6 py-2.5 rounded-xl bg-jade-500/15 border border-jade-500/40 text-jade-400 font-medium transition-colors hover:bg-jade-500/25">
+        ユニットへ戻る
+      </button>
+    </div>
+  </div>
+
+  <!-- ─── TAB: CHOICE (4択) ─── -->
+  <div id="tab-choice" class="tab-panel hidden">
+    <!-- Question -->
+    <div class="rounded-2xl border border-ink-700/60 bg-ink-800/80 p-8 mb-5 text-center min-h-[140px] flex flex-col items-center justify-center"
+         style="box-shadow:0 10px 30px rgba(0,0,0,0.3);">
+      <p class="text-xs text-ink-500 mb-2 font-mono uppercase tracking-widest">次の単語の意味は？</p>
+      <p class="font-display text-4xl text-ink-50 tracking-tight" id="choice-word">—</p>
+    </div>
+
+    <!-- Feedback overlay -->
+    <div id="choice-feedback" class="hidden fixed inset-0 z-40 flex items-center justify-center pointer-events-none">
+      <div id="choice-feedback-icon" class="text-8xl animate-pop-in"></div>
+    </div>
+
+    <!-- Options -->
+    <div id="choice-options" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      <!-- Populated by JS -->
+    </div>
+
+    <!-- Result / next button -->
+    <div id="choice-result" class="hidden mt-5 text-center animate-slide-up">
+      <p id="choice-result-msg" class="text-sm text-ink-400 mb-3"></p>
+      <button id="btn-choice-next" class="px-8 py-2.5 rounded-xl bg-jade-500/15 border border-jade-500/40 text-jade-400 font-medium transition-colors hover:bg-jade-500/25">
+        次へ →
+      </button>
+    </div>
+
+    <!-- Session end -->
+    <div id="choice-session-end" class="hidden mt-8 animate-pop-in text-center">
+      <div class="w-20 h-20 rounded-full bg-jade-500/20 flex items-center justify-center mx-auto mb-4">
+        <span class="text-4xl">🎉</span>
+      </div>
+      <p class="font-display text-2xl text-ink-100 mb-2">テスト完了！</p>
+      <p class="text-ink-400 text-sm mb-6">
+        正解: <span id="choice-result-correct" class="text-jade-400 font-bold">0</span> 語　／　
+        不正解: <span id="choice-result-wrong" class="text-rose-400 font-bold">0</span> 語
+      </p>
+      <button id="btn-choice-retry-wrong" class="px-6 py-2.5 rounded-xl bg-ember-500/15 border border-ember-500/40 text-ember-400 font-medium mr-3 transition-colors hover:bg-ember-500/25 hidden">
+        間違えた語を再挑戦
+      </button>
+      <button id="btn-choice-finish" class="px-6 py-2.5 rounded-xl bg-jade-500/15 border border-jade-500/40 text-jade-400 font-medium transition-colors hover:bg-jade-500/25">
+        ユニットへ戻る
+      </button>
+    </div>
+  </div>
+
+
+  <!-- ─── TAB: FILL (穴埋め4択) ─── -->
+  <div id="tab-fill" class="tab-panel hidden">
+    <!-- 例文表示 -->
+    <div class="rounded-2xl border border-ink-700/60 bg-ink-800/80 p-6 mb-5 text-center min-h-[160px] flex flex-col items-center justify-center"
+         style="box-shadow:0 10px 30px rgba(0,0,0,0.3);">
+      <p class="text-xs text-ink-500 mb-3 font-mono uppercase tracking-widest">( ___ ) に入る最も適切な語を選べ</p>
+      <p class="text-lg leading-relaxed text-ink-100 font-sans" id="fill-sentence">—</p>
+    </div>
+
+    <!-- フィードバックオーバーレイ -->
+    <div id="fill-feedback" class="hidden fixed inset-0 z-40 flex items-center justify-center pointer-events-none">
+      <div id="fill-feedback-icon" class="text-8xl animate-pop-in"></div>
+    </div>
+
+    <!-- 選択肢 -->
+    <div id="fill-options" class="grid grid-cols-2 gap-3"></div>
+
+    <!-- セッション終了 -->
+    <div id="fill-session-end" class="hidden mt-8 animate-pop-in text-center">
+      <div class="w-20 h-20 rounded-full bg-jade-500/20 flex items-center justify-center mx-auto mb-4">
+        <span class="text-4xl">📝</span>
+      </div>
+      <p class="font-display text-2xl text-ink-100 mb-2">テスト完了！</p>
+      <p class="text-ink-400 text-sm mb-6">
+        正解: <span id="fill-result-correct" class="text-jade-400 font-bold">0</span> 語　／　
+        不正解: <span id="fill-result-wrong" class="text-rose-400 font-bold">0</span> 語
+      </p>
+      <button id="btn-fill-retry-wrong" class="px-6 py-2.5 rounded-xl bg-ember-500/15 border border-ember-500/40 text-ember-400 font-medium mr-3 transition-colors hover:bg-ember-500/25 hidden">
+        間違えた語を再挑戦
+      </button>
+      <button id="btn-fill-finish" class="px-6 py-2.5 rounded-xl bg-jade-500/15 border border-jade-500/40 text-jade-400 font-medium transition-colors hover:bg-jade-500/25">
+        ユニットへ戻る
+      </button>
+    </div>
+  </div>
+
+  <!-- ─── TAB: SPELL (記述) ─── -->
+  <div id="tab-spell" class="tab-panel hidden">
+    <!-- Question -->
+    <div class="rounded-2xl border border-ink-700/60 bg-ink-800/80 p-8 mb-5 text-center min-h-[140px] flex flex-col items-center justify-center"
+         style="box-shadow:0 10px 30px rgba(0,0,0,0.3);">
+      <p class="text-xs text-ink-500 mb-2 font-mono uppercase tracking-widest">英単語をスペルしてください</p>
+      <p class="font-display text-4xl text-ink-50 tracking-tight" id="spell-meaning">—</p>
+    </div>
+
+    <!-- Input -->
+    <div class="relative mb-4">
+      <input
+        type="text"
+        id="spell-input"
+        autocomplete="off"
+        autocapitalize="off"
+        spellcheck="false"
+        placeholder="ここに英単語を入力..."
+        class="spell-input w-full bg-ink-800 border border-ink-600 rounded-2xl px-5 py-4 text-ink-100 font-mono text-lg placeholder-ink-600 transition-colors focus:border-jade-500"
+      />
+    </div>
+
+    <!-- Feedback -->
+    <div id="spell-feedback" class="hidden mb-4 rounded-2xl p-5 text-center animate-pop-in">
+      <p id="spell-feedback-msg" class="text-sm font-medium mb-2"></p>
+      <p id="spell-correct-answer" class="font-mono text-3xl font-bold"></p>
+    </div>
+
+    <!-- Buttons -->
+    <div class="flex gap-3">
+      <button id="btn-spell-submit" class="flex-1 py-3 rounded-2xl bg-jade-500/20 hover:bg-jade-500/30 border border-jade-500/40 text-jade-300 font-semibold transition-all">
+        答え合わせ
+      </button>
+      <button id="btn-spell-next" class="hidden flex-1 py-3 rounded-2xl bg-ink-700 hover:bg-ink-600 border border-ink-600 text-ink-200 font-medium transition-all">
+        次へ →
+      </button>
+    </div>
+
+    <!-- Session end -->
+    <div id="spell-session-end" class="hidden mt-8 animate-pop-in text-center">
+      <div class="w-20 h-20 rounded-full bg-jade-500/20 flex items-center justify-center mx-auto mb-4">
+        <span class="text-4xl">✨</span>
+      </div>
+      <p class="font-display text-2xl text-ink-100 mb-2">テスト完了！</p>
+      <p class="text-ink-400 text-sm mb-6">
+        正解: <span id="spell-result-correct" class="text-jade-400 font-bold">0</span> 語　／　
+        不正解: <span id="spell-result-wrong" class="text-rose-400 font-bold">0</span> 語
+      </p>
+      <button id="btn-spell-retry-wrong" class="px-6 py-2.5 rounded-xl bg-ember-500/15 border border-ember-500/40 text-ember-400 font-medium mr-3 transition-colors hover:bg-ember-500/25 hidden">
+        間違えた語を再挑戦
+      </button>
+      <button id="btn-spell-finish" class="px-6 py-2.5 rounded-xl bg-jade-500/15 border border-jade-500/40 text-jade-400 font-medium transition-colors hover:bg-jade-500/25">
+        ユニットへ戻る
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- LOGIN MODAL                                                  -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<div id="modal-login" class="hidden fixed inset-0 z-50 flex items-center justify-center modal-backdrop">
+  <div class="w-full max-w-sm mx-4 rounded-3xl border border-ink-700/60 bg-ink-900 p-8 animate-pop-in">
+    <h2 class="font-display text-2xl text-ink-50 mb-2">サインイン</h2>
+    <p class="text-ink-400 text-sm mb-6">Googleアカウントで進捗を同期します</p>
+    <button id="btn-google-signin"
+      class="w-full flex items-center justify-center gap-3 py-3 rounded-2xl bg-ink-700 hover:bg-ink-600 border border-ink-600 text-ink-100 font-medium transition-all hover:scale-[1.02]">
+      <svg class="w-5 h-5" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+      Googleでサインイン
+    </button>
+    <p class="text-center text-xs text-ink-600 mt-4">サインインしなくてもローカルで学習できます</p>
+    <button id="btn-close-modal" class="w-full mt-3 py-2 rounded-xl text-ink-500 hover:text-ink-300 text-sm transition-colors">
+      キャンセル
+    </button>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- TOAST                                                        -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<div id="toast" class="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 px-5 py-3 rounded-2xl text-sm font-medium border shadow-2xl pointer-events-none">
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- Firebase SDK (Modular v10+)                                  -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<script type="module" src="app.js"></script>
+
+</body>
+</html>
