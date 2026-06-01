@@ -241,6 +241,7 @@ async function loadWords() {
       word:    w.word,
       meaning: w.meaning,
       pos:     w.part_of_speech ?? "",
+      example: w.example ?? "",
     }));
     console.log(`✅ ${allWords.length} 語を読み込みました`);
   } catch (e) {
@@ -648,6 +649,7 @@ function switchTab(tab) {
   if (tab === "ja2en")  initJa2EnMode();
   if (tab === "listen") initListenMode();
   if (tab === "timed")  initTimedMode();
+  if (tab === "example") initExampleMode();
   if (tab !== "timed")  stopTimedTimer();
 }
 
@@ -886,13 +888,110 @@ function endSpellSession() {
   else if (spellCorrect / spellWords.length >= 0.8) playSound("correct");
 }
 
+// ═══════════════════════════════════════════════════════════════
+// ── 例文穴埋めモード (example) ────────────────────────────────
+// ═══════════════════════════════════════════════════════════════
+let exampleIdx = 0, exampleWords = [], exampleCorrect = 0, exampleWrong = [], exampleAnswered = false;
+
+function initExampleMode(words) {
+  exampleCorrect  = 0;
+  exampleWrong    = [];
+  exampleIdx      = 0;
+  exampleAnswered = false;
+  // example を持つ単語だけに絞る
+  const base = (words ?? [...sessionWords]).filter(w => w.example && w.example.includes("___"));
+  exampleWords = shuffle(base);
+  document.getElementById("example-session-end").classList.add("hidden");
+  document.getElementById("example-result").classList.add("hidden");
+  updateTestProgress("example");
+  renderExample();
+}
+
+function renderExample() {
+  if (exampleIdx >= exampleWords.length) { endExampleSession(); return; }
+  const w = exampleWords[exampleIdx];
+  // ___ を目立つ空欄表示に置換
+  const displayed = w.example.replace("___", '<span class="inline-block px-4 py-0.5 mx-1 rounded-lg font-mono font-bold text-emerald-300" style="background:rgba(52,211,153,0.15);border:1.5px dashed rgba(52,211,153,0.5);min-width:80px;">　　　　</span>');
+  document.getElementById("example-sentence").innerHTML = displayed;
+  document.getElementById("example-meaning-hint").textContent = `（意味のヒント：${w.meaning}）`;
+  exampleAnswered = false;
+  document.getElementById("example-result").classList.add("hidden");
+
+  // 選択肢：正解 + 同ユニットor全体から3つダミー
+  const pool    = allWords.filter(x => x.id !== w.id && x.example && x.example.includes("___"));
+  const unitPool = pool.filter(x => x.unit === w.unit);
+  const dummies = shuffle(unitPool.length >= 3 ? unitPool : pool).slice(0, 3).map(x => x.word);
+  const options = shuffle([w.word, ...dummies]);
+
+  document.getElementById("example-options").innerHTML = options.map((opt, i) => `
+    <button class="choice-btn w-full text-left px-5 py-3.5 rounded-2xl bg-ink-800/80 border border-ink-700/60 text-ink-200 text-sm font-mono font-medium"
+            data-correct="${opt === w.word}"
+            data-wordid="${w.id}"
+            data-example-btn>
+      <span class="text-ink-500 mr-2">${String.fromCharCode(65+i)}.</span>${opt}
+    </button>`).join("");
+
+  updateTestProgress("example");
+}
+
+window.handleExample = async function(btn, wordId, isCorrect) {
+  if (exampleAnswered) return;
+  exampleAnswered = true;
+  const w = exampleWords[exampleIdx];
+
+  document.querySelectorAll("#example-options .choice-btn").forEach(b => {
+    b.disabled = true;
+    if (b.dataset.correct === "true") b.classList.add("correct");
+  });
+
+  const resultEl   = document.getElementById("example-result");
+  const msgEl      = document.getElementById("example-result-msg");
+  const wordEl     = document.getElementById("example-correct-word");
+
+  if (isCorrect) {
+    btn.classList.add("correct");
+    exampleCorrect++;
+    playSound("correct");
+    showFeedback2("example", "✓", "jade");
+    showToast("正解！", "success");
+    msgEl.textContent = "✓ 正解！　正しい単語：";
+    msgEl.className   = "text-sm font-medium mb-1 text-jade-400";
+    wordEl.textContent = w.word;
+    wordEl.className   = "font-mono text-xl font-bold mb-3 text-jade-300";
+  } else {
+    btn.classList.add("incorrect");
+    exampleWrong.push(wordId);
+    playSound("wrong");
+    showFeedback2("example", "✕", "rose");
+    showToast("不正解…", "error");
+    msgEl.textContent = "✕ 不正解　正しい単語：";
+    msgEl.className   = "text-sm font-medium mb-1 text-rose-400";
+    wordEl.textContent = w.word;
+    wordEl.className   = "font-mono text-xl font-bold mb-3 text-rose-300";
+  }
+
+  resultEl.classList.remove("hidden");
+  await updateWordProgress(wordId, isCorrect);
+  setTimeout(() => { hideFeedback2("example"); exampleIdx++; renderExample(); }, 1100);
+};
+
+function endExampleSession() {
+  document.getElementById("example-session-end").classList.remove("hidden");
+  document.getElementById("example-result-correct").textContent = exampleCorrect;
+  document.getElementById("example-result-wrong").textContent   = exampleWrong.length;
+  document.getElementById("btn-example-retry-wrong").classList.toggle("hidden", exampleWrong.length === 0);
+  if (exampleWrong.length === 0) playSound("perfect");
+  else if (exampleCorrect / exampleWords.length >= 0.8) playSound("correct");
+}
+
 // ─────────────────────────────────────────────────────────────
 // テスト進捗バー
 // ─────────────────────────────────────────────────────────────
 function updateTestProgress(mode) {
-  const [current, total, correct] = mode === "choice"
-    ? [choiceIdx, choiceWords.length, choiceCorrect]
-    : [spellIdx,  spellWords.length,  spellCorrect];
+  const [current, total, correct] =
+    mode === "choice"  ? [choiceIdx,  choiceWords.length,  choiceCorrect]  :
+    mode === "example" ? [exampleIdx, exampleWords.length, exampleCorrect] :
+                         [spellIdx,   spellWords.length,   spellCorrect];
   const pct = total ? (current / total) * 100 : 0;
   document.getElementById("progress-fill").style.width  = `${pct}%`;
   document.getElementById("progress-label").textContent = `${current} / ${total}`;
@@ -1424,6 +1523,24 @@ function bindEvents() {
     initListenMode(allWords.filter(w => listenWrong.includes(w.id)));
   });
   document.getElementById("btn-listen-finish").addEventListener("click", () => {
+    playSound("click"); renderHome(); showScreen("screen-home");
+  });
+
+  // ── 例文穴埋め ──
+  document.getElementById("example-options").addEventListener("click", e => {
+    const btn = e.target.closest(".choice-btn");
+    if (!btn) return;
+    handleExample(btn, btn.dataset.wordid, btn.dataset.correct === "true");
+  });
+  document.getElementById("btn-example-next").addEventListener("click", () => {
+    hideFeedback2("example"); exampleIdx++; renderExample();
+  });
+  document.getElementById("btn-example-retry-wrong").addEventListener("click", () => {
+    playSound("click");
+    document.getElementById("example-session-end").classList.add("hidden");
+    initExampleMode(allWords.filter(w => exampleWrong.includes(w.id)));
+  });
+  document.getElementById("btn-example-finish").addEventListener("click", () => {
     playSound("click"); renderHome(); showScreen("screen-home");
   });
 

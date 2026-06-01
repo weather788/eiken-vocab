@@ -351,6 +351,7 @@
       <button type="button" class="tab-btn rounded-lg text-sm font-medium text-ink-400" data-tab="ja2en">🔄 日→英</button>
       <button type="button" class="tab-btn rounded-lg text-sm font-medium text-ink-400" data-tab="listen">🔊 聴取</button>
       <button type="button" class="tab-btn rounded-lg text-sm font-medium text-ink-400" data-tab="timed">⏱ タイム</button>
+      <button type="button" class="tab-btn rounded-lg text-sm font-medium text-ink-400" data-tab="example">📖 例文</button>
     </div>
   </div>
 
@@ -539,6 +540,52 @@
       <div class="flex flex-col sm:flex-row gap-3 justify-center">
         <button type="button" id="btn-timed-retry" class="px-6 py-2.5 rounded-xl bg-gold-400/15 border border-gold-400/40 text-gold-300 font-medium transition-colors hover:bg-gold-400/25">もう一度</button>
         <button type="button" id="btn-timed-finish" class="px-6 py-2.5 rounded-xl bg-jade-500/15 border border-jade-500/40 text-jade-400 font-medium transition-colors hover:bg-jade-500/25">ユニットへ戻る</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─── TAB: EXAMPLE (例文穴埋め) ─── -->
+  <div id="tab-example" class="tab-panel hidden">
+    <!-- 問題カード -->
+    <div class="rounded-2xl border border-emerald-500/30 bg-ink-800/80 p-6 mb-4 text-center min-h-[140px] flex flex-col items-center justify-center gap-3"
+         style="box-shadow:0 10px 30px rgba(0,0,0,0.3); background:linear-gradient(135deg,rgba(16,185,129,0.08),rgba(29,30,46,0.9));">
+      <p class="text-xs font-mono uppercase tracking-widest" style="color:rgba(52,211,153,0.7);">空欄に入る単語を選んでください</p>
+      <p class="text-ink-100 text-lg sm:text-xl leading-relaxed font-medium px-2" id="example-sentence">—</p>
+      <p class="text-xs text-ink-500 font-mono" id="example-meaning-hint"></p>
+    </div>
+    <!-- フィードバックオーバーレイ -->
+    <div id="example-feedback" class="hidden fixed inset-0 z-40 flex items-center justify-center pointer-events-none">
+      <div id="example-feedback-icon" class="text-8xl animate-pop-in"></div>
+    </div>
+    <!-- 選択肢 -->
+    <div id="example-options" class="grid grid-cols-1 gap-2.5"></div>
+    <!-- 正誤後の表示 -->
+    <div id="example-result" class="hidden mt-4 text-center animate-slide-up">
+      <p id="example-result-msg" class="text-sm text-ink-400 mb-1"></p>
+      <p id="example-correct-word" class="font-mono text-xl font-bold mb-3"></p>
+      <button type="button" id="btn-example-next" class="px-8 py-2.5 rounded-xl border font-medium transition-colors"
+              style="background:rgba(16,185,129,0.15);border-color:rgba(52,211,153,0.4);color:#6ee7b7;">次へ →</button>
+    </div>
+    <!-- セッション終了 -->
+    <div id="example-session-end" class="hidden mt-8 animate-pop-in text-center">
+      <div class="w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4" style="background:rgba(16,185,129,0.2);">
+        <span class="text-4xl">📖</span>
+      </div>
+      <p class="font-display text-2xl text-ink-100 mb-2">テスト完了！</p>
+      <p class="text-ink-400 text-sm mb-5">
+        正解: <span id="example-result-correct" class="font-bold" style="color:#6ee7b7;">0</span> 語　／　
+        不正解: <span id="example-result-wrong" class="text-rose-400 font-bold">0</span> 語
+      </p>
+      <div class="flex flex-col sm:flex-row gap-3 justify-center">
+        <button type="button" id="btn-example-retry-wrong"
+                class="px-6 py-2.5 rounded-xl bg-ember-500/15 border border-ember-500/40 text-ember-400 font-medium transition-colors hover:bg-ember-500/25 hidden">
+          間違えた語を再挑戦
+        </button>
+        <button type="button" id="btn-example-finish"
+                class="px-6 py-2.5 rounded-xl border font-medium transition-colors"
+                style="background:rgba(16,185,129,0.15);border-color:rgba(52,211,153,0.4);color:#6ee7b7;">
+          ユニットへ戻る
+        </button>
       </div>
     </div>
   </div>
