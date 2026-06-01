@@ -913,7 +913,12 @@ function renderExample() {
   // ___ を目立つ空欄表示に置換
   const displayed = w.example.replace("___", '<span class="inline-block px-4 py-0.5 mx-1 rounded-lg font-mono font-bold text-emerald-300" style="background:rgba(52,211,153,0.15);border:1.5px dashed rgba(52,211,153,0.5);min-width:80px;">　　　　</span>');
   document.getElementById("example-sentence").innerHTML = displayed;
-  document.getElementById("example-meaning-hint").textContent = `（意味のヒント：${w.meaning}）`;
+  document.getElementById("example-meaning-hint").textContent = `意味のヒント：${w.meaning}`;
+  // ヒントを毎回隠す
+  document.getElementById("example-meaning-hint").classList.add("hidden");
+  const hintBtn = document.getElementById("btn-example-hint");
+  hintBtn.textContent = "💡 ヒントを見る";
+  hintBtn.style.color = "rgba(52,211,153,0.6)";
   exampleAnswered = false;
   document.getElementById("example-result").classList.add("hidden");
 
@@ -933,6 +938,15 @@ function renderExample() {
 
   updateTestProgress("example");
 }
+
+window.toggleExampleHint = function() {
+  const hint = document.getElementById("example-meaning-hint");
+  const btn  = document.getElementById("btn-example-hint");
+  const visible = !hint.classList.contains("hidden");
+  hint.classList.toggle("hidden", visible);
+  btn.textContent = visible ? "💡 ヒントを見る" : "🙈 ヒントを隠す";
+  btn.style.color = visible ? "rgba(52,211,153,0.6)" : "rgba(251,191,36,0.8)";
+};
 
 window.handleExample = async function(btn, wordId, isCorrect) {
   if (exampleAnswered) return;

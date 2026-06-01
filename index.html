@@ -551,7 +551,15 @@
          style="box-shadow:0 10px 30px rgba(0,0,0,0.3); background:linear-gradient(135deg,rgba(16,185,129,0.08),rgba(29,30,46,0.9));">
       <p class="text-xs font-mono uppercase tracking-widest" style="color:rgba(52,211,153,0.7);">空欄に入る単語を選んでください</p>
       <p class="text-ink-100 text-lg sm:text-xl leading-relaxed font-medium px-2" id="example-sentence">—</p>
-      <p class="text-xs text-ink-500 font-mono" id="example-meaning-hint"></p>
+      <div class="flex items-center gap-2">
+        <button type="button" id="btn-example-hint"
+                onclick="toggleExampleHint()"
+                class="text-xs px-3 py-1 rounded-lg border transition-colors font-mono"
+                style="background:rgba(52,211,153,0.08);border-color:rgba(52,211,153,0.3);color:rgba(52,211,153,0.6);">
+          💡 ヒントを見る
+        </button>
+        <p class="text-xs text-ink-500 font-mono hidden" id="example-meaning-hint"></p>
+      </div>
     </div>
     <!-- フィードバックオーバーレイ -->
     <div id="example-feedback" class="hidden fixed inset-0 z-40 flex items-center justify-center pointer-events-none">
